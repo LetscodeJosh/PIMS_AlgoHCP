@@ -1,6 +1,6 @@
 """
 PIMS_AlgoHCP Standalone Microservice Server - Protected & Unthrottled.
-Runs isolated microservice with JWT Authentication and Tamper-Proof API Shielding.
+Runs isolated microservice with JWT Authentication, New Doctor Canonical Verification, and Verified Dictionary Commit.
 """
 
 import http.server
@@ -21,7 +21,7 @@ WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
 # In-memory storage state & security shield
 masterlist = list(SAMPLE_MASTERLIST)
-dictionary_mgr = MasterDictionary(SAMPLE_DICTIONARY)
+dictionary_mgr = MasterDictionary(list(SAMPLE_DICTIONARY))
 scorer = HCPMatchScorer()
 workflow_mgr = EscalationWorkflowManager()
 security_shield = SecurityShield()
@@ -149,7 +149,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 action_taken = "AUTO_MERGED"
                 msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']})."
             elif score_pct >= 50.0:
-                review_item = workflow_mgr.add_to_queue(candidate, matches)
+                review_item = workflow_mgr.add_to_queue(candidate, matches, "MATCH_REVIEW")
                 action_taken = "PENDING_MANAGER_REVIEW"
                 msg = f"Medium/50-50 Match ({score_pct}%). Sent to Level 1 Manager Review Queue ({review_item['review_id']})."
             else:
@@ -160,13 +160,20 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "canonical_name": candidate.get("name", "").upper(),
                     "specialty": candidate.get("specialty"),
                     "hospital": candidate.get("hospital"),
+                    "secondary_hospital": candidate.get("secondary_hospital", ""),
+                    "address": candidate.get("address", ""),
                     "city": candidate.get("city"),
                     "contact": candidate.get("contact", ""),
-                    "status": "VERIFIED_ACTIVE"
+                    "email": candidate.get("email", ""),
+                    "status": "PENDING_MANAGERIAL_VERIFICATION"
                 }
                 masterlist.append(new_rec)
-                action_taken = "CREATED_NEW_RECORD"
-                msg = f"Low Confidence Match ({score_pct}%). Saved as distinct new HCP Profile ({new_id})."
+                
+                # Add to Manager Verification Queue for New Doctor Registration
+                review_item = workflow_mgr.add_to_queue(candidate, [{"master_id": new_id, "master_record": new_rec, "confidence_pct": score_pct, "tier": "Low Match (New Profile)", "badge_color": "#EF4444"}], "NEW_DOCTOR_VERIFICATION")
+                
+                action_taken = "NEW_DOCTOR_QUEUED_FOR_VERIFICATION"
+                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Position Verification ({review_item['review_id']}) to commit 100% verified data to Canonical Dictionary."
 
             self._send_json({
                 "status": "success",
@@ -206,10 +213,41 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif path == "/api/resolve":
             review_id = payload.get("review_id")
-            action = payload.get("action")
+            action = payload.get("action") # 'MERGE_RECORD', 'KEEP_SEPARATE', or 'VERIFY_AND_LOCK_CANONICAL'
             actor = payload.get("actor_name", "Approver")
             target_id = payload.get("target_master_id")
             notes = payload.get("notes", "")
+
+            # If action is VERIFY_AND_LOCK_CANONICAL for new doctor
+            if action == "VERIFY_AND_LOCK_CANONICAL":
+                review_item = next((item for item in workflow_mgr.review_queue if item["review_id"] == review_id), None)
+                if review_item:
+                    cand = review_item["candidate"]
+                    m_id = target_id or review_item.get("top_match", {}).get("master_id")
+                    
+                    # Update masterlist status to VERIFIED_LOCKED
+                    for m in masterlist:
+                        if m["id"] == m_id:
+                            m["status"] = "VERIFIED_LOCKED"
+                            m["verified_by"] = actor
+                            m["verified_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    # Commit to 100% Verified Dictionary
+                    dict_id = f"DICT-{5000 + len(dictionary_mgr.dictionary_db) + 1}"
+                    new_dict_entry = {
+                        "id": dict_id,
+                        "full_canonical_name": cand.get("name", "").upper(),
+                        "name": cand.get("name"),
+                        "specialty": cand.get("specialty"),
+                        "primary_hospital": cand.get("hospital"),
+                        "secondary_hospital": cand.get("secondary_hospital", "N/A"),
+                        "city": cand.get("city"),
+                        "province": "Metro Manila",
+                        "official_contact": cand.get("contact", ""),
+                        "dictionary_notes": f"100% Verified Canonical Baseline Record approved by Managerial Position ({actor}) on {datetime.now().strftime('%Y-%m-%d')}. Immutable / Cannot be tampered."
+                    }
+                    dictionary_mgr.dictionary_db.append(new_dict_entry)
+                    notes = f"Verified by Managerial Position ({actor}). Profile locked as Immutable and committed to Verified Dictionary ({dict_id})."
 
             res = workflow_mgr.resolve(review_id, action, actor, target_id, notes)
             self._send_json(res)

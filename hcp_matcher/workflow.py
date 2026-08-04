@@ -1,13 +1,13 @@
 """
 Hierarchical Managerial Approval & Escalation Engine.
-Handles review process for 50-50 match submissions.
+Handles review queue for 50-50 matches and new doctor canonical verification.
 """
 
 from datetime import datetime
 
 class EscalationWorkflowManager:
     """
-    Manages the review queue and escalation chain:
+    Manages the review queue, new doctor verification, and escalation chain:
     MedRep -> Level 1 District Manager -> Level 2 Regional Director / Data Steward.
     """
 
@@ -16,23 +16,27 @@ class EscalationWorkflowManager:
         self.history = []
         self.counter = 100
 
-    def add_to_queue(self, candidate_record: dict, match_results: list) -> dict:
+    def add_to_queue(self, candidate_record: dict, match_results: list, review_type: str = "MATCH_REVIEW") -> dict:
         """Add a submission to the pending managerial review queue."""
         self.counter += 1
         review_id = f"REV-{self.counter}"
         
-        # Pick top matched master record if available
         top_match = match_results[0] if match_results else None
+
+        stage_title = "Level 1 Review (District Manager)"
+        if review_type == "NEW_DOCTOR_VERIFICATION":
+            stage_title = "Level 1 Review - New Doctor Canonical Verification"
 
         item = {
             "review_id": review_id,
+            "review_type": review_type,
             "submission_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "medrep_name": candidate_record.get("medrep_name", "MedRep User"),
             "candidate": candidate_record,
             "top_match": top_match,
             "all_matches": match_results,
             "confidence_pct": top_match["confidence_pct"] if top_match else 0.0,
-            "current_stage": "Level 1 Review (District Manager)",
+            "current_stage": stage_title,
             "assigned_level": 1,
             "status": "PENDING",
             "escalation_history": [
@@ -40,7 +44,7 @@ class EscalationWorkflowManager:
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "action": "SUBMITTED_BY_MEDREP",
                     "actor": candidate_record.get("medrep_name", "MedRep User"),
-                    "note": f"Submitted doctor entry. Match Score: {top_match['confidence_pct']}% ({top_match['tier']})"
+                    "note": f"Submitted doctor entry ({review_type}). Match Score: {top_match['confidence_pct'] if top_match else 0.0}%"
                 }
             ]
         }
@@ -75,7 +79,7 @@ class EscalationWorkflowManager:
 
     def resolve(self, review_id: str, action: str, actor_name: str, target_master_id: str = None, notes: str = "") -> dict:
         """
-        Resolve review item with action: 'MERGE_RECORD' or 'KEEP_SEPARATE'.
+        Resolve review item with action: 'MERGE_RECORD', 'KEEP_SEPARATE', or 'VERIFY_AND_LOCK_CANONICAL'.
         """
         for item in self.review_queue:
             if item["review_id"] == review_id:

@@ -1,6 +1,6 @@
 /**
  * PIMS_AlgoHCP Client Application Logic
- * Enforces Mandatory Field Validation, Pop-Up Warning Modal, & Multi-Device Origin Resolution
+ * Supports New Doctor Canonical Verification & Automatic Master Dictionary Commit
  */
 
 const API_BASE = window.location.origin + "/api";
@@ -18,10 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDictionary();
   loadReviews();
 
-  // Attach Real-Time Auto-Detection Listeners on ALL form fields
   document.querySelectorAll(".auto-detect-field").forEach(input => {
     input.addEventListener("keyup", () => {
-      input.style.borderColor = ""; // Clear error highlight on keypress
+      input.style.borderColor = "";
       triggerAutoDetect();
     });
     input.addEventListener("change", () => {
@@ -30,23 +29,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Buttons
   document.getElementById("btn-check-recognizer").addEventListener("click", runRecognizerCheck);
   document.getElementById("btn-submit-entry").addEventListener("click", submitMedRepEntry);
   document.getElementById("btn-run-workbench").addEventListener("click", runWorkbenchTest);
   
-  // Warning Modal Close
   document.getElementById("warning-modal-close").addEventListener("click", closeWarningModal);
   document.getElementById("warning-modal-btn").addEventListener("click", closeWarningModal);
 
-  // Modals
   document.getElementById("modal-close-btn").addEventListener("click", closeModal);
   document.getElementById("modal-cancel-btn").addEventListener("click", closeModal);
   document.getElementById("dict-modal-close").addEventListener("click", () => {
     document.getElementById("dict-modal-backdrop").classList.remove("active");
   });
 
-  // Initial trigger for pre-filled demo data
   triggerAutoDetect();
 });
 
@@ -76,7 +71,6 @@ function switchTab(tabId) {
   }
 }
 
-// Preset loader (Fills all mandatory fields completely)
 function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
   document.getElementById("input-doc-name").value = name;
   document.getElementById("input-doc-spec").value = spec;
@@ -91,7 +85,6 @@ function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
   triggerAutoDetect();
 }
 
-// REAL-TIME AUTOMATIC DETECTOR BEFORE SUBMISSION
 function triggerAutoDetect() {
   clearTimeout(autoDetectDebounceTimer);
   autoDetectDebounceTimer = setTimeout(runAutoDetectScan, 300);
@@ -149,10 +142,8 @@ function getMedRepInput() {
   };
 }
 
-// MANDATORY FIELD VALIDATION
 function validateMandatoryInput(candidate) {
   const missing = [];
-
   const fieldsToCheck = [
     { key: "name", id: "input-doc-name", label: "Doctor Full Name" },
     { key: "specialty", id: "input-doc-spec", label: "Specialty" },
@@ -168,7 +159,7 @@ function validateMandatoryInput(candidate) {
     const elem = document.getElementById(f.id);
     if (!candidate[f.key] || candidate[f.key].length === 0) {
       missing.push(f.label);
-      if (elem) elem.style.borderColor = "#EF4444"; // Red highlight
+      if (elem) elem.style.borderColor = "#EF4444";
     } else {
       if (elem) elem.style.borderColor = "";
     }
@@ -180,7 +171,6 @@ function validateMandatoryInput(candidate) {
 function showWarningModal(missingFields) {
   const backdrop = document.getElementById("warning-modal-backdrop");
   const listElem = document.getElementById("warning-missing-list");
-
   listElem.innerHTML = missingFields.map(f => `<li><strong>${f}</strong></li>`).join("");
   backdrop.classList.add("active");
 }
@@ -203,7 +193,6 @@ function resetFormInput() {
   triggerAutoDetect();
 }
 
-// Fetch Masterlist
 async function loadMasterlist() {
   try {
     const res = await fetch(`${API_BASE}/masterlist`);
@@ -220,19 +209,27 @@ async function loadMasterlist() {
 function renderMasterlist(records) {
   const tbody = document.getElementById("masterlist-tbody");
   if (!tbody) return;
-  tbody.innerHTML = records.map(r => `
-    <tr>
-      <td><strong>${r.id}</strong></td>
-      <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name}</small></td>
-      <td><span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">${r.specialty}</span></td>
-      <td>${r.hospital}</td>
-      <td>${r.city}, ${r.province || ''}</td>
-      <td>${r.contact || 'N/A'}</td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = records.map(r => {
+    let statusBadge = `<span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">VERIFIED</span>`;
+    if (r.status === "PENDING_MANAGERIAL_VERIFICATION") {
+      statusBadge = `<span class="badge" style="background:rgba(245, 158, 11, 0.2); color:#F59E0B;">PENDING MANAGER VERIFICATION</span>`;
+    } else if (r.status === "VERIFIED_LOCKED") {
+      statusBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>`;
+    }
+
+    return `
+      <tr>
+        <td><strong>${r.id}</strong><br>${statusBadge}</td>
+        <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name}</small></td>
+        <td><span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">${r.specialty}</span></td>
+        <td>${r.hospital}</td>
+        <td>${r.city}, ${r.province || ''}</td>
+        <td>${r.contact || 'N/A'}</td>
+      </tr>
+    `;
+  }).join("");
 }
 
-// Fetch Dictionary
 async function loadDictionary() {
   try {
     const res = await fetch(`${API_BASE}/dictionary`);
@@ -251,7 +248,7 @@ function renderDictionary(records) {
   if (!tbody) return;
   tbody.innerHTML = records.map(d => `
     <tr>
-      <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED</span><br><strong>${d.id}</strong></td>
+      <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED CANONICAL</span><br><strong>${d.id}</strong></td>
       <td><strong>${d.name}</strong><br><small style="color:var(--text-muted)">${d.full_canonical_name}</small></td>
       <td><strong>${d.specialty}</strong></td>
       <td><strong>Primary:</strong> ${d.primary_hospital}<br><small style="color:var(--text-muted)">Secondary: ${d.secondary_hospital}</small></td>
@@ -261,7 +258,6 @@ function renderDictionary(records) {
   `).join("");
 }
 
-// Fetch Pending Manager Reviews
 async function loadReviews() {
   try {
     const res = await fetch(`${API_BASE}/reviews`);
@@ -284,7 +280,7 @@ function renderReviews(reviews) {
     container.innerHTML = `
       <div class="card" style="text-align:center; padding:3rem;">
         <h3 style="color:var(--text-muted)">No Pending Managerial Reviews</h3>
-        <p style="color:var(--text-dim); margin-top:0.5rem;">All 50-50 match submissions have been processed.</p>
+        <p style="color:var(--text-dim); margin-top:0.5rem;">All submissions and new doctor verification requests have been processed.</p>
       </div>
     `;
     return;
@@ -294,6 +290,7 @@ function renderReviews(reviews) {
     const top = rev.top_match;
     const cand = rev.candidate;
     const mast = top ? top.master_record : {};
+    const isNewDoctorVerification = rev.review_type === "NEW_DOCTOR_VERIFICATION";
     
     return `
       <div class="card" style="margin-bottom:1.5rem; border:1px solid ${top ? top.badge_color : 'var(--border-color)'}">
@@ -301,6 +298,7 @@ function renderReviews(reviews) {
           <div>
             <span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B; margin-right:0.5rem;">${rev.review_id}</span>
             <span class="badge" style="background:rgba(14, 165, 233, 0.2); color:var(--primary);">${rev.current_stage}</span>
+            ${isNewDoctorVerification ? `<span class="badge" style="background:rgba(139,92,246,0.2); color:#8B5CF6; margin-left:0.5rem;">NEW DOCTOR VERIFICATION</span>` : ''}
           </div>
           <div style="text-align:right">
             <span style="font-size:1.4rem; font-weight:800; color:${top ? top.badge_color : '#FFF'}">${rev.confidence_pct}% Match</span>
@@ -309,30 +307,35 @@ function renderReviews(reviews) {
         </div>
 
         <div style="margin-bottom:1rem;">
-          <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Multi-Field Comparison Matrix</h4>
+          <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
+            ${isNewDoctorVerification ? 'New Doctor Profile Details (Verify Canonical Data)' : 'Multi-Field Comparison Matrix'}
+          </h4>
           <div class="comparison-container">
             <div class="comp-box">
-              <h4>Submitted Record (MedRep Entry)</h4>
-              <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#0EA5E9">${cand.name}</div></div>
+              <h4>Submitted Doctor Info (MedRep Entry)</h4>
+              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:#0EA5E9">${cand.name}</div></div>
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${cand.hospital}</div></div>
-              <div class="field-pair"><div class="label">City</div><div class="val">${cand.city}</div></div>
-              <div class="field-pair"><div class="label">Contact / Email</div><div class="val">${cand.contact || 'N/A'} ${cand.email ? '| ' + cand.email : ''}</div></div>
+              <div class="field-pair"><div class="label">Secondary Clinic</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Street Address</div><div class="val">${cand.address || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">City / Municipality</div><div class="val">${cand.city}</div></div>
+              <div class="field-pair"><div class="label">Contact / Email</div><div class="val">${cand.contact || 'N/A'} | ${cand.email || 'N/A'}</div></div>
             </div>
 
             <div class="comp-box highlight">
-              <h4>Candidate Masterlist Record (${mast.id || 'N/A'})</h4>
-              <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#10B981">${mast.name || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">Specialty</div><div class="val">${mast.specialty || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${mast.hospital || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">City</div><div class="val">${mast.city || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">Contact</div><div class="val">${mast.contact || 'N/A'}</div></div>
+              <h4>${isNewDoctorVerification ? 'Pending Master Profile' : 'Candidate Masterlist Record (' + (mast.id || 'N/A') + ')'}</h4>
+              <div class="field-pair"><div class="label">Master ID</div><div class="val" style="color:#10B981">${mast.id || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#10B981">${mast.name || cand.name}</div></div>
+              <div class="field-pair"><div class="label">Specialty</div><div class="val">${mast.specialty || cand.specialty}</div></div>
+              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${mast.hospital || cand.hospital}</div></div>
+              <div class="field-pair"><div class="label">City</div><div class="val">${mast.city || cand.city}</div></div>
+              <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Managerial Verification' : 'Verified'}</div></div>
             </div>
           </div>
         </div>
 
         <div style="background:rgba(15, 23, 42, 0.8); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1rem; font-size:0.82rem;">
-          <strong>Escalation History:</strong>
+          <strong>Escalation & Verification Audit Log:</strong>
           <ul style="margin-left:1.2rem; margin-top:0.3rem; color:var(--text-muted)">
             ${rev.escalation_history.map(h => `<li><strong>[${h.timestamp}] ${h.actor}:</strong> ${h.note}</li>`).join("")}
           </ul>
@@ -348,12 +351,19 @@ function renderReviews(reviews) {
                 ⬆️ Pass to Higher Position (Escalate)
               </button>
             ` : ''}
-            <button class="btn btn-secondary" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
-              ❌ Keep Separate Records
-            </button>
-            <button class="btn btn-success" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
-              ✅ Approve & Merge HCP Profile
-            </button>
+            
+            ${isNewDoctorVerification ? `
+              <button class="btn btn-success" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
+                🔒 Verify & Lock Canonical Info (Commit to 100% Dictionary)
+              </button>
+            ` : `
+              <button class="btn btn-secondary" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
+                ❌ Keep Separate Records
+              </button>
+              <button class="btn btn-success" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
+                ✅ Approve & Merge HCP Profile
+              </button>
+            `}
           </div>
         </div>
       </div>
@@ -361,7 +371,6 @@ function renderReviews(reviews) {
   }).join("");
 }
 
-// MedRep Check Recognizer
 async function runRecognizerCheck() {
   const candidate = getMedRepInput();
   const missing = validateMandatoryInput(candidate);
@@ -387,7 +396,6 @@ async function runRecognizerCheck() {
   }
 }
 
-// Open Recognizer Pop-up Modal
 function openRecognizerModal(candidate, matches) {
   const backdrop = document.getElementById("modal-backdrop");
   const modalBody = document.getElementById("modal-body-content");
@@ -421,7 +429,6 @@ function openRecognizerModal(candidate, matches) {
           <strong>Hospital:</strong> ${m.master_record.hospital} | <strong>Specialty:</strong> ${m.master_record.specialty} | <strong>City:</strong> ${m.master_record.city}
         </div>
 
-        <!-- Field-by-Field Intelligent Breakdown Matrix -->
         <div style="background:rgba(0,0,0,0.3); padding:0.8rem; border-radius:var(--radius-sm); font-size:0.78rem;">
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.5rem; margin-bottom:0.5rem;">
             <div>Name Match: <strong>${m.breakdown.name.score}%</strong> (${m.breakdown.name.status})</div>
@@ -471,14 +478,13 @@ async function linkCandidateToExisting(masterId) {
   }
 }
 
-// MedRep Submit (Enforces Mandatory Fields & Displays Warning Pop-Up)
 async function submitMedRepEntry() {
   const candidate = getMedRepInput();
   const missing = validateMandatoryInput(candidate);
 
   if (missing.length > 0) {
     showWarningModal(missing);
-    return; // Block submission completely
+    return;
   }
 
   try {
@@ -489,12 +495,11 @@ async function submitMedRepEntry() {
     });
     const data = await res.json();
     if (data.status === "success") {
-      alert(`Submission Workflow Completed!\n\nAction Taken: ${data.action_taken}\n${data.message}`);
+      alert(`Submission Processed!\n\nAction Taken: ${data.action_taken}\n${data.message}`);
       closeModal();
       resetFormInput();
       
-      // Auto-switch to reviews tab if 50-50 match queue item was created
-      if (data.action_taken === "PENDING_MANAGER_REVIEW") {
+      if (data.action_taken === "PENDING_MANAGER_REVIEW" || data.action_taken === "NEW_DOCTOR_QUEUED_FOR_VERIFICATION") {
         await loadReviews();
         switchTab("tab-reviews");
       } else {
@@ -507,7 +512,6 @@ async function submitMedRepEntry() {
   }
 }
 
-// Manager Escalate Action
 async function escalateReview(reviewId) {
   const actor = prompt("Enter your Name/Role for Escalation Audit:", "District Sales Manager");
   if (!actor) return;
@@ -531,9 +535,8 @@ async function escalateReview(reviewId) {
   }
 }
 
-// Manager Resolve Action
 async function resolveReview(reviewId, action, targetMasterId) {
-  const actor = prompt("Enter your Name/Role for Audit Log:", "Regional Director");
+  const actor = prompt("Enter your Name/Role for Audit Log:", "Regional Director / Head Steward");
   if (!actor) return;
 
   try {
@@ -550,15 +553,15 @@ async function resolveReview(reviewId, action, targetMasterId) {
     const data = await res.json();
     if (data.success) {
       alert(data.message);
-      loadReviews();
-      loadMasterlist();
+      await loadReviews();
+      await loadMasterlist();
+      await loadDictionary();
     }
   } catch (e) {
     console.error("Resolution error:", e);
   }
 }
 
-// Verified Dictionary Modal Drawer
 function openDictionaryModal(doctorNameQuery) {
   const modal = document.getElementById("dict-modal-backdrop");
   const content = document.getElementById("dict-modal-body");
@@ -595,7 +598,6 @@ function openDictionaryModal(doctorNameQuery) {
   modal.classList.add("active");
 }
 
-// Algorithm Workbench Inspector
 async function runWorkbenchTest() {
   const rec1 = {
     name: document.getElementById("wb-name1").value,
