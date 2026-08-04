@@ -1,0 +1,232 @@
+"""
+PIMS_AlgoHCP Server - HTTP API and Static Web App Server.
+Runs out-of-the-box using Python's standard library.
+"""
+
+import http.server
+import socketserver
+import json
+import os
+import urllib.parse
+from datetime import datetime
+
+from hcp_matcher.scorer import HCPMatchScorer
+from hcp_matcher.dictionary import MasterDictionary
+from hcp_matcher.workflow import EscalationWorkflowManager
+from hcp_matcher.sample_data import SAMPLE_MASTERLIST, SAMPLE_DICTIONARY
+
+PORT = 8080
+WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
+
+# In-memory storage state
+masterlist = list(SAMPLE_MASTERLIST)
+dictionary_mgr = MasterDictionary(SAMPLE_DICTIONARY)
+scorer = HCPMatchScorer()
+workflow_mgr = EscalationWorkflowManager()
+
+# Pre-seed a 50-50 pending review sample
+sample_5050_candidate = {
+    "medrep_name": "MedRep Santos",
+    "name": "Dr. Santa Maria Cruz",
+    "specialty": "Cardiology",
+    "hospital": "St. Lukes Hospital BGC",
+    "city": "Taguig",
+    "contact": "09171234567"
+}
+matches_5050 = [scorer.score_pair(sample_5050_candidate, masterlist[0])]
+workflow_mgr.add_to_queue(sample_5050_candidate, matches_5050)
+
+class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=WEB_DIR, **kwargs)
+
+    def _send_json(self, data, code=200):
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+
+        if path == "/api/masterlist":
+            self._send_json({"status": "success", "masterlist": masterlist})
+
+        elif path == "/api/dictionary":
+            self._send_json({"status": "success", "dictionary": dictionary_mgr.get_all()})
+
+        elif path == "/api/reviews":
+            reviews = workflow_mgr.get_pending_reviews()
+            self._send_json({"status": "success", "reviews": reviews, "history": workflow_mgr.history})
+
+        elif path.startswith("/api/"):
+            self._send_json({"error": "Endpoint not found"}, 404)
+
+        else:
+            # Serve static files from web/
+            if path == "/" or path == "":
+                self.path = "/index.html"
+            super().do_GET()
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body_bytes = self.rfile.read(content_length)
+        payload = {}
+        if body_bytes:
+            try:
+                payload = json.loads(body_bytes.decode("utf-8"))
+            except Exception:
+                pass
+
+        if path == "/api/match":
+            candidate = payload.get("candidate", {})
+            results = []
+            for master_rec in masterlist:
+                res = scorer.score_pair(candidate, master_rec)
+                results.append(res)
+            # Sort by highest confidence score
+            results.sort(key=lambda x: x["confidence_pct"], reverse=True)
+            self._send_json({"status": "success", "matches": results})
+
+        elif path == "/api/submit":
+            candidate = payload.get("candidate", {})
+
+            # Backend Enforcement of Mandatory Fields
+            mandatory_keys = [
+                ("name", "Doctor Full Name"),
+                ("specialty", "Specialty"),
+                ("hospital", "Primary Hospital / Institution"),
+                ("secondary_hospital", "Secondary Hospital / Clinic"),
+                ("address", "Street / Barangay Address"),
+                ("city", "City / Municipality"),
+                ("contact", "Contact Number"),
+                ("email", "Email Address")
+            ]
+
+            missing_fields = []
+            for k, label in mandatory_keys:
+                val = candidate.get(k, "")
+                if not val or not str(val).strip():
+                    missing_fields.append(label)
+
+            if missing_fields:
+                self._send_json({
+                    "status": "error",
+                    "action_taken": "SUBMISSION_BLOCKED",
+                    "message": f"Submission Rejected! Mandatory fields are blank: {', '.join(missing_fields)}",
+                    "missing_fields": missing_fields
+                }, 400)
+                return
+
+            # Run matching against masterlist
+            matches = []
+            for master_rec in masterlist:
+                matches.append(scorer.score_pair(candidate, master_rec))
+            matches.sort(key=lambda x: x["confidence_pct"], reverse=True)
+
+            top_match = matches[0] if matches else None
+            score_pct = top_match["confidence_pct"] if top_match else 0.0
+
+            if score_pct >= 88.0:
+                action_taken = "AUTO_MERGED"
+                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']})."
+            elif score_pct >= 50.0:
+                review_item = workflow_mgr.add_to_queue(candidate, matches)
+                action_taken = "PENDING_MANAGER_REVIEW"
+                msg = f"Medium/50-50 Match ({score_pct}%). Sent to Level 1 Manager Review Queue ({review_item['review_id']})."
+            else:
+                new_id = f"HCP-{1000 + len(masterlist) + 1}"
+                new_rec = {
+                    "id": new_id,
+                    "name": candidate.get("name"),
+                    "canonical_name": candidate.get("name", "").upper(),
+                    "specialty": candidate.get("specialty"),
+                    "hospital": candidate.get("hospital"),
+                    "city": candidate.get("city"),
+                    "contact": candidate.get("contact", ""),
+                    "status": "VERIFIED_ACTIVE"
+                }
+                masterlist.append(new_rec)
+                action_taken = "CREATED_NEW_RECORD"
+                msg = f"Low Confidence Match ({score_pct}%). Saved as distinct new HCP Profile ({new_id})."
+
+            self._send_json({
+                "status": "success",
+                "action_taken": action_taken,
+                "message": msg,
+                "top_match": top_match,
+                "all_matches": matches[:5]
+            })
+
+        elif path == "/api/link-existing":
+            candidate = payload.get("candidate", {})
+            master_id = payload.get("master_id")
+            
+            target_rec = next((m for m in masterlist if m["id"] == master_id), None)
+            
+            log_item = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "action": "LINKED_TO_EXISTING_RECORD",
+                "candidate": candidate,
+                "linked_master_id": master_id,
+                "master_record": target_rec
+            }
+            workflow_mgr.history.append(log_item)
+            
+            self._send_json({
+                "status": "success",
+                "action_taken": "LINKED_TO_EXISTING_RECORD",
+                "message": f"Candidate doctor record linked to existing Master Profile ({master_id}). Duplicate prevented!",
+                "target_record": target_rec
+            })
+
+        elif path == "/api/escalate":
+            review_id = payload.get("review_id")
+            actor = payload.get("actor_name", "District Manager")
+            reason = payload.get("reason", "Manager uncertain about 50-50 match; passed to higher position.")
+            res = workflow_mgr.escalate(review_id, actor, reason)
+            self._send_json(res)
+
+        elif path == "/api/resolve":
+            review_id = payload.get("review_id")
+            action = payload.get("action")
+            actor = payload.get("actor_name", "Approver")
+            target_id = payload.get("target_master_id")
+            notes = payload.get("notes", "")
+
+            res = workflow_mgr.resolve(review_id, action, actor, target_id, notes)
+            self._send_json(res)
+
+        elif path == "/api/test-score":
+            rec1 = payload.get("record1", {})
+            rec2 = payload.get("record2", {})
+            result = scorer.score_pair(rec1, rec2)
+            self._send_json({"status": "success", "result": result})
+
+        else:
+            self._send_json({"error": "Endpoint not found"}, 404)
+
+def run_server():
+    os.makedirs(WEB_DIR, exist_ok=True)
+    with socketserver.TCPServer(("", PORT), AlgoHCPRequestHandler) as httpd:
+        print(f"PIMS_AlgoHCP Server running on http://localhost:{PORT}")
+        httpd.serve_forever()
+
+if __name__ == "__main__":
+    run_server()
