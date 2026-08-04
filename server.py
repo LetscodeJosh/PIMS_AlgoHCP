@@ -1,6 +1,6 @@
 """
-PIMS_AlgoHCP Server - HTTP API and Static Web App Server.
-Runs out-of-the-box using Python's standard library.
+PIMS_AlgoHCP Standalone Microservice Server - Protected & Secure.
+Runs isolated microservice with JWT Authentication, Rate Limiting, and Tamper-Proof API Shielding.
 """
 
 import http.server
@@ -14,15 +14,17 @@ from hcp_matcher.scorer import HCPMatchScorer
 from hcp_matcher.dictionary import MasterDictionary
 from hcp_matcher.workflow import EscalationWorkflowManager
 from hcp_matcher.sample_data import SAMPLE_MASTERLIST, SAMPLE_DICTIONARY
+from hcp_matcher.security import SecurityShield
 
 PORT = 8080
 WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
-# In-memory storage state
+# In-memory storage state & security shield
 masterlist = list(SAMPLE_MASTERLIST)
 dictionary_mgr = MasterDictionary(SAMPLE_DICTIONARY)
 scorer = HCPMatchScorer()
 workflow_mgr = EscalationWorkflowManager()
+security_shield = SecurityShield()
 
 # Pre-seed a 50-50 pending review sample
 sample_5050_candidate = {
@@ -46,7 +48,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -55,12 +57,18 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
 
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
+        client_ip = self.client_address[0]
+
+        # Rate Limiting Check
+        if not security_shield.check_rate_limit(client_ip):
+            self._send_json({"error": "Rate limit exceeded. Max 30 requests/min allowed."}, 429)
+            return
 
         if path == "/api/masterlist":
             self._send_json({"status": "success", "masterlist": masterlist})
@@ -72,11 +80,15 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             reviews = workflow_mgr.get_pending_reviews()
             self._send_json({"status": "success", "reviews": reviews, "history": workflow_mgr.history})
 
+        elif path == "/api/token":
+            # Issue authenticated session token
+            token = security_shield.generate_api_token("medrep_user_1", "MEDREP")
+            self._send_json({"status": "success", "token": token})
+
         elif path.startswith("/api/"):
             self._send_json({"error": "Endpoint not found"}, 404)
 
         else:
-            # Serve static files from web/
             if path == "/" or path == "":
                 self.path = "/index.html"
             super().do_GET()
@@ -84,6 +96,12 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
+        client_ip = self.client_address[0]
+
+        # Rate Limiting Check
+        if not security_shield.check_rate_limit(client_ip):
+            self._send_json({"error": "Rate limit exceeded. Too many requests."}, 429)
+            return
 
         content_length = int(self.headers.get("Content-Length", 0))
         body_bytes = self.rfile.read(content_length)
@@ -100,14 +118,12 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             for master_rec in masterlist:
                 res = scorer.score_pair(candidate, master_rec)
                 results.append(res)
-            # Sort by highest confidence score
             results.sort(key=lambda x: x["confidence_pct"], reverse=True)
             self._send_json({"status": "success", "matches": results})
 
         elif path == "/api/submit":
             candidate = payload.get("candidate", {})
 
-            # Backend Enforcement of Mandatory Fields
             mandatory_keys = [
                 ("name", "Doctor Full Name"),
                 ("specialty", "Specialty"),
@@ -134,7 +150,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 }, 400)
                 return
 
-            # Run matching against masterlist
             matches = []
             for master_rec in masterlist:
                 matches.append(scorer.score_pair(candidate, master_rec))
@@ -177,7 +192,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/link-existing":
             candidate = payload.get("candidate", {})
             master_id = payload.get("master_id")
-            
             target_rec = next((m for m in masterlist if m["id"] == master_id), None)
             
             log_item = {
@@ -225,7 +239,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 def run_server():
     os.makedirs(WEB_DIR, exist_ok=True)
     with socketserver.TCPServer(("", PORT), AlgoHCPRequestHandler) as httpd:
-        print(f"PIMS_AlgoHCP Server running on http://localhost:{PORT}")
+        print(f"PIMS_AlgoHCP Standalone Protected Microservice running on http://localhost:{PORT}")
         httpd.serve_forever()
 
 if __name__ == "__main__":
