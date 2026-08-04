@@ -144,11 +144,16 @@
           </ul>
 
           <div style="margin-top:1.5rem; background:rgba(14,165,233,0.1); border:1px solid var(--border-glow); padding:1rem; border-radius:var(--radius-md);">
-            <strong style="color:var(--primary); font-size:0.88rem; text-transform:uppercase;">Quick Fill Demo Presets:</strong>
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.5rem;">
-              <button class="btn btn-secondary" style="font-size:0.78rem; padding:0.3rem 0.6rem;" onclick="loadPreset('Dr. Santa Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Makati Med Annex', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">Dr. Santa Maria Cruz</button>
-              <button class="btn btn-secondary" style="font-size:0.78rem; padding:0.3rem 0.6rem;" onclick="loadPreset('Dr. St. Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'St Lukes Clinic', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">Dr. St. Maria Cruz</button>
-              <button class="btn btn-secondary" style="font-size:0.78rem; padding:0.3rem 0.6rem;" onclick="loadPreset('Dr. Juan Dela Cruz', 'Pediatrics', 'Philippine General Hospital', 'Manila Doctors Clinic', 'Taft Ave', 'Manila', '09189876543', 'juan.delacruz@pgh.gov.ph')">Dr. Juan Dela Cruz</button>
+            <strong style="color:var(--primary); font-size:0.88rem; text-transform:uppercase;">Quick Fill Demo Presets (Click to Test Algorithm Tiers):</strong>
+            <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem;">
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santa Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Makati Med Annex', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟢 High Match (Auto-Merge Test)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. St. Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'St Lukes Clinic', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟡 50-50 Match (Manager Queue Test)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dra. Ma. Victoria Santos', 'Internal Medicine', 'Makati Medical Center', 'The Medical City', 'Amorsolo St', 'Makati City', '09201112233', 'v.santos@makatimed.ph')">Honorific Shift (Dra. Ma. vs Maria)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Juan De La Cruz', 'Pediatrics', 'Philippine General Hospital', 'Manila Doctors Clinic', 'Taft Ave', 'Manila', '09189876543', 'juan.delacruz@pgh.gov.ph')">Surname Compound (Dela vs De La)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santo Tomas Reyes', 'Orthopedic Surgery', 'Asian Hospital and Medical Center', 'Muntinlupa Med', 'Civic Drive', 'Muntinlupa City', '09175554433', 'santo.reyes@asianhospital.com')">Santo / Sto. Prefix Shift</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Jose Protacio Rizal Junior', 'Ophthalmology', 'Cardinal Santos Medical Center', 'VRC Eye Clinic', 'Wilson St', 'San Juan City', '09193332211', 'j.rizal@cardinalsantos.ph')">Junior / Suffix Shift (Jr. vs Junior)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Antonio Delos Reyes', 'Dermatology', 'The Medical City Pasig', 'St Lukes QC Clinic', 'Ortigas Ave', 'Pasig City', '09178889900', 'a.reyes@medicalcity.com.ph')">Delos / De Los Compound Shift</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Andres Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City General Hospital', 'Quezon Ave', 'Quezon City', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Profile Test)</button>
             </div>
           </div>
         </div>

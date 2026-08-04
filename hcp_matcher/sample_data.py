@@ -63,6 +63,42 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09193332211",
         "status": "VERIFIED_ACTIVE"
+    },
+    {
+        "id": "HCP-1006",
+        "name": "Dr. Antonio De Los Reyes",
+        "canonical_name": "ANTONIO DE LOS REYES",
+        "specialty": "Dermatology",
+        "hospital": "The Medical City - Pasig",
+        "address": "Ortigas Avenue",
+        "city": "Pasig City",
+        "province": "Metro Manila",
+        "contact": "09178889900",
+        "status": "VERIFIED_ACTIVE"
+    },
+    {
+        "id": "HCP-1007",
+        "name": "Dr. Francisco Baltazar Jr.",
+        "canonical_name": "FRANCISCO BALTAZAR JUNIOR",
+        "specialty": "General Surgery",
+        "hospital": "UST Hospital",
+        "address": "España Blvd, Sampaloc",
+        "city": "Manila",
+        "province": "Metro Manila",
+        "contact": "09224445566",
+        "status": "VERIFIED_ACTIVE"
+    },
+    {
+        "id": "HCP-1008",
+        "name": "Dra. Clara De San Jose",
+        "canonical_name": "CLARA DE SAN JOSE",
+        "specialty": "Obstetrics & Gynecology",
+        "hospital": "Chong Hua Hospital",
+        "address": "Fuente Osmeña",
+        "city": "Cebu City",
+        "province": "Cebu",
+        "contact": "09337778899",
+        "status": "VERIFIED_ACTIVE"
     }
 ]
 
@@ -102,5 +138,41 @@ SAMPLE_DICTIONARY = [
         "province": "Metro Manila",
         "official_contact": "(02) 8888-8999",
         "dictionary_notes": "100% Verified Canonical Benchmark Record. Department Chair."
+    },
+    {
+        "id": "DICT-5004",
+        "full_canonical_name": "DR. SANTO TOMAS REYES, FPOA",
+        "name": "Dr. Santo Tomas Reyes",
+        "specialty": "Orthopedic Surgery - Joint Replacement",
+        "primary_hospital": "Asian Hospital and Medical Center",
+        "secondary_hospital": "Medical Center Muntinlupa",
+        "city": "Muntinlupa City",
+        "province": "Metro Manila",
+        "official_contact": "(02) 8771-9000",
+        "dictionary_notes": "100% Verified Canonical Benchmark Record. Orthopedic Specialist."
+    },
+    {
+        "id": "DICT-5005",
+        "full_canonical_name": "DR. JOSE PROTACIO RIZAL JUNIOR, M.D.",
+        "name": "Dr. Jose Protacio Rizal Jr.",
+        "specialty": "Ophthalmology & Cataract Surgery",
+        "primary_hospital": "Cardinal Santos Medical Center",
+        "secondary_hospital": "VRC Eye Center",
+        "city": "San Juan City",
+        "province": "Metro Manila",
+        "official_contact": "(02) 8727-0001",
+        "dictionary_notes": "100% Verified Canonical Benchmark Record. Fellow in Ophthalmology."
+    },
+    {
+        "id": "DICT-5006",
+        "full_canonical_name": "DR. ANTONIO DE LOS REYES, M.D.",
+        "name": "Dr. Antonio De Los Reyes",
+        "specialty": "Dermatology & Cosmetic Surgery",
+        "primary_hospital": "The Medical City - Pasig",
+        "secondary_hospital": "St. Luke's QC",
+        "city": "Pasig City",
+        "province": "Metro Manila",
+        "official_contact": "(02) 8988-1000",
+        "dictionary_notes": "100% Verified Canonical Benchmark Record. Dermatology Department Chair."
     }
 ]
