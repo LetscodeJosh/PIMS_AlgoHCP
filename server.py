@@ -1,6 +1,6 @@
 """
-PIMS_AlgoHCP Standalone Microservice Server - Protected & Secure.
-Runs isolated microservice with JWT Authentication, Rate Limiting, and Tamper-Proof API Shielding.
+PIMS_AlgoHCP Standalone Microservice Server - Protected & Unthrottled.
+Runs isolated microservice with JWT Authentication and Tamper-Proof API Shielding.
 """
 
 import http.server
@@ -63,12 +63,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
-        client_ip = self.client_address[0]
-
-        # Rate Limiting Check
-        if not security_shield.check_rate_limit(client_ip):
-            self._send_json({"error": "Rate limit exceeded. Max 30 requests/min allowed."}, 429)
-            return
 
         if path == "/api/masterlist":
             self._send_json({"status": "success", "masterlist": masterlist})
@@ -81,7 +75,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json({"status": "success", "reviews": reviews, "history": workflow_mgr.history})
 
         elif path == "/api/token":
-            # Issue authenticated session token
             token = security_shield.generate_api_token("medrep_user_1", "MEDREP")
             self._send_json({"status": "success", "token": token})
 
@@ -96,12 +89,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
-        client_ip = self.client_address[0]
-
-        # Rate Limiting Check
-        if not security_shield.check_rate_limit(client_ip):
-            self._send_json({"error": "Rate limit exceeded. Too many requests."}, 429)
-            return
 
         content_length = int(self.headers.get("Content-Length", 0))
         body_bytes = self.rfile.read(content_length)
