@@ -1,6 +1,6 @@
 """
 PIMS_AlgoHCP Standalone Microservice Server - Protected & Unthrottled.
-Runs isolated microservice with JWT Authentication, New Doctor Canonical Verification, and Verified Dictionary Commit.
+Runs isolated microservice with Digital Signature Support, Immutable True-Only-One Signature Lock, and Dictionary Auto-Commit.
 """
 
 import http.server
@@ -128,6 +128,10 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not val or not str(val).strip():
                     missing_fields.append(label)
 
+            # Check Signature
+            if not candidate.get("signature_png"):
+                missing_fields.append("Doctor Digital Signature")
+
             if missing_fields:
                 self._send_json({
                     "status": "error",
@@ -165,6 +169,8 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "city": candidate.get("city"),
                     "contact": candidate.get("contact", ""),
                     "email": candidate.get("email", ""),
+                    "signature_png": candidate.get("signature_png", ""),
+                    "signature_status": "PENDING_VERIFICATION",
                     "status": "PENDING_MANAGERIAL_VERIFICATION"
                 }
                 masterlist.append(new_rec)
@@ -173,7 +179,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 review_item = workflow_mgr.add_to_queue(candidate, [{"master_id": new_id, "master_record": new_rec, "confidence_pct": score_pct, "tier": "Low Match (New Profile)", "badge_color": "#EF4444"}], "NEW_DOCTOR_VERIFICATION")
                 
                 action_taken = "NEW_DOCTOR_QUEUED_FOR_VERIFICATION"
-                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Position Verification ({review_item['review_id']}) to commit 100% verified data to Canonical Dictionary."
+                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Position Verification ({review_item['review_id']}) to commit 100% verified data & signature to Canonical Dictionary."
 
             self._send_json({
                 "status": "success",
@@ -213,22 +219,23 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif path == "/api/resolve":
             review_id = payload.get("review_id")
-            action = payload.get("action") # 'MERGE_RECORD', 'KEEP_SEPARATE', or 'VERIFY_AND_LOCK_CANONICAL'
+            action = payload.get("action")
             actor = payload.get("actor_name", "Approver")
             target_id = payload.get("target_master_id")
             notes = payload.get("notes", "")
 
-            # If action is VERIFY_AND_LOCK_CANONICAL for new doctor
             if action == "VERIFY_AND_LOCK_CANONICAL":
                 review_item = next((item for item in workflow_mgr.review_queue if item["review_id"] == review_id), None)
                 if review_item:
                     cand = review_item["candidate"]
                     m_id = target_id or review_item.get("top_match", {}).get("master_id")
                     
-                    # Update masterlist status to VERIFIED_LOCKED
+                    # Update masterlist status to VERIFIED_LOCKED and lock signature
                     for m in masterlist:
                         if m["id"] == m_id:
                             m["status"] = "VERIFIED_LOCKED"
+                            m["signature_status"] = "LOCKED_TRUE_ONLY_ONE"
+                            m["signature_png"] = cand.get("signature_png", m.get("signature_png", ""))
                             m["verified_by"] = actor
                             m["verified_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -244,10 +251,12 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         "city": cand.get("city"),
                         "province": "Metro Manila",
                         "official_contact": cand.get("contact", ""),
-                        "dictionary_notes": f"100% Verified Canonical Baseline Record approved by Managerial Position ({actor}) on {datetime.now().strftime('%Y-%m-%d')}. Immutable / Cannot be tampered."
+                        "signature_png": cand.get("signature_png", ""),
+                        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+                        "dictionary_notes": f"100% Verified Canonical Baseline Record & True-Only-One Signature approved by Managerial Position ({actor}) on {datetime.now().strftime('%Y-%m-%d')}. Immutable / Cannot be tampered."
                     }
                     dictionary_mgr.dictionary_db.append(new_dict_entry)
-                    notes = f"Verified by Managerial Position ({actor}). Profile locked as Immutable and committed to Verified Dictionary ({dict_id})."
+                    notes = f"Verified by Managerial Position ({actor}). Profile & True-Only-One Signature locked as Immutable and committed to Verified Dictionary ({dict_id})."
 
             res = workflow_mgr.resolve(review_id, action, actor, target_id, notes)
             self._send_json(res)
@@ -263,6 +272,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server():
     os.makedirs(WEB_DIR, exist_ok=True)
+    socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), AlgoHCPRequestHandler) as httpd:
         print(f"PIMS_AlgoHCP Standalone Protected Microservice running on http://localhost:{PORT}")
         httpd.serve_forever()

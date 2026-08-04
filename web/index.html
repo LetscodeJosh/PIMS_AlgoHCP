@@ -45,7 +45,7 @@
       <div class="section-header">
         <h2 class="section-title">Medical Representative Doctor Entry</h2>
         <p class="section-desc">
-          All doctor fields are <strong>mandatory</strong>. The system will block submission automatically if any field is left blank.
+          All doctor fields including <strong>Doctor Signature</strong> are mandatory. The system will block submission automatically if any field is left blank.
         </p>
       </div>
 
@@ -58,7 +58,7 @@
               Intelligent Pre-Submission Recognizer Active
             </div>
             <div style="font-size:0.82rem; color:var(--text-muted)" id="banner-desc">
-              Fill out all mandatory doctor fields to scan master records automatically...
+              Fill out all mandatory doctor fields and signature to scan master records automatically...
             </div>
           </div>
         </div>
@@ -123,6 +123,23 @@
             </div>
           </div>
 
+          <!-- Doctor Digital Signature Pad -->
+          <div class="form-group" style="margin-top:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <label style="margin-bottom:0;">Doctor Digital Signature <span style="color:#EF4444">*</span> (True-Only-One Immutable Signature)</label>
+              <div>
+                <button type="button" class="btn btn-secondary" id="btn-clear-sig" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Clear Pad</button>
+                <button type="button" class="btn btn-secondary" id="btn-sample-sig" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Auto-Sign Sample</button>
+              </div>
+            </div>
+            <div id="sig-pad-wrapper" style="background:#0F172A; border:2px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; padding:0.5rem; position:relative;">
+              <canvas id="sig-canvas" width="450" height="110" style="background:#020617; border-radius:var(--radius-sm); cursor:crosshair; width:100%; height:110px;"></canvas>
+              <small style="color:var(--text-dim); display:block; margin-top:0.3rem;">
+                Draw doctor signature above with mouse/touch. Once locked by Manager, signature becomes immutable (True-Only-One Signature).
+              </small>
+            </div>
+          </div>
+
           <div style="display:flex; gap:1rem; margin-top:1rem;">
             <button class="btn btn-secondary" id="btn-check-recognizer">
               🔍 Scan Masterlist (Pop-up Detector)
@@ -134,17 +151,15 @@
         </div>
 
         <div class="card">
-          <h3 style="margin-bottom: 1rem;">ℹ️ Mandatory Validation & Recognizer Rules</h3>
+          <h3 style="margin-bottom: 1rem;">ℹ️ Mandatory Validation & True-Only-One Signature Rules</h3>
           <ul style="margin-left: 1.2rem; color: var(--text-muted); font-size:0.92rem; line-height:1.8;">
-            <li><strong>Mandatory Submission Rule:</strong> All 8 fields must be completely filled out before submitting. Incomplete forms will trigger an immediate Pop-Up Warning and halt submission.</li>
-            <li><strong>Multi-Field Intelligence:</strong> Evaluates Doctor Name, Specialty, Primary Hospital, Secondary Clinic, Street Address, City, Contact Number, and Email simultaneously.</li>
-            <li><strong>High Confidence (≥88%):</strong> Auto-links/merges candidate into single HCP Profile.</li>
-            <li><strong>Medium / 50-50 Match (50% - 87%):</strong> Triggers pop-up modal detector and sends entry to <strong>Managerial Review & Escalation Queue</strong>.</li>
-            <li><strong>Low Confidence (&lt;50%):</strong> Kept separate as a distinct new doctor record.</li>
+            <li><strong>Mandatory Submission Rule:</strong> All 8 fields + Doctor Signature must be completely fulfilled before submitting.</li>
+            <li><strong>Single-Truth Signature Rule:</strong> Each verified doctor profile has exactly <strong>one true-only-one signature</strong>. Once verified and locked by Managerial Position, it is locked as immutable and cannot be altered.</li>
+            <li><strong>New Doctor Detection Pipeline:</strong> If score is &lt;50% (New Doctor detected), system creates draft profile, routes entry to <strong>Manager Review Queue</strong>, and commits locked canonical data + signature to the <strong>Verified Dictionary</strong> upon approval.</li>
           </ul>
 
           <div style="margin-top:1.5rem; background:rgba(14,165,233,0.1); border:1px solid var(--border-glow); padding:1rem; border-radius:var(--radius-md);">
-            <strong style="color:var(--primary); font-size:0.88rem; text-transform:uppercase;">Quick Fill Demo Presets (Click to Test Algorithm Tiers):</strong>
+            <strong style="color:var(--primary); font-size:0.88rem; text-transform:uppercase;">Quick Fill Demo Presets (Auto-signs signature):</strong>
             <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem;">
               <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santa Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Makati Med Annex', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟢 High Match (Auto-Merge Test)</button>
               <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. St. Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'St Lukes Clinic', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟡 50-50 Match (Manager Queue Test)</button>
@@ -153,7 +168,7 @@
               <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santo Tomas Reyes', 'Orthopedic Surgery', 'Asian Hospital and Medical Center', 'Muntinlupa Med', 'Civic Drive', 'Muntinlupa City', '09175554433', 'santo.reyes@asianhospital.com')">Santo / Sto. Prefix Shift</button>
               <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Jose Protacio Rizal Junior', 'Ophthalmology', 'Cardinal Santos Medical Center', 'VRC Eye Clinic', 'Wilson St', 'San Juan City', '09193332211', 'j.rizal@cardinalsantos.ph')">Junior / Suffix Shift (Jr. vs Junior)</button>
               <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Antonio Delos Reyes', 'Dermatology', 'The Medical City Pasig', 'St Lukes QC Clinic', 'Ortigas Ave', 'Pasig City', '09178889900', 'a.reyes@medicalcity.com.ph')">Delos / De Los Compound Shift</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Andres Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City General Hospital', 'Quezon Ave', 'Quezon City', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Profile Test)</button>
+              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Andres Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City General Hospital', 'Quezon Ave', 'Quezon City', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Doctor Test)</button>
             </div>
           </div>
         </div>
@@ -163,9 +178,9 @@
     <!-- TAB 2: 50-50 MANAGER REVIEWS & ESCALATION -->
     <section id="tab-reviews" class="tab-content">
       <div class="section-header">
-        <h2 class="section-title">50-50 Match Managerial Approval Portal</h2>
+        <h2 class="section-title">50-50 Match & New Doctor Managerial Approval Portal</h2>
         <p class="section-desc">
-          Review uncertain (50%-50%) candidate matches. Approvers can inspect side-by-side attributes, consult the 100% Verified Dictionary, and pass/escalate records to higher positions if uncertain.
+          Review uncertain (50%-50%) candidate matches and new doctor verification requests. Approvers inspect attributes & digital signatures before finalizing decisions.
         </p>
       </div>
 
@@ -179,7 +194,7 @@
       <div class="section-header">
         <h2 class="section-title">Verified Canonical HCP Reference Dictionary</h2>
         <p class="section-desc">
-          100% correct baseline doctor information. Approvers and managers can reference this canonical dictionary before making final merge/separate decisions.
+          100% correct baseline doctor information & locked true-only-one signatures. Approvers reference this dictionary before making final decisions.
         </p>
       </div>
 
@@ -191,7 +206,7 @@
               <th>Canonical Full Name</th>
               <th>Verified Specialty</th>
               <th>Affiliated Hospitals</th>
-              <th>Location</th>
+              <th>True-Only-One Signature</th>
               <th>Dictionary Reference Notes</th>
             </tr>
           </thead>
@@ -220,7 +235,7 @@
               <th>Specialty</th>
               <th>Primary Hospital</th>
               <th>City / Location</th>
-              <th>Contact</th>
+              <th>Signature Status</th>
             </tr>
           </thead>
           <tbody id="masterlist-tbody">

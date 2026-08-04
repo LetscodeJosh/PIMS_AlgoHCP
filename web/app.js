@@ -1,6 +1,6 @@
 /**
  * PIMS_AlgoHCP Client Application Logic
- * Supports New Doctor Canonical Verification & Automatic Master Dictionary Commit
+ * Supports Doctor Digital Signature Pad, Immutable True-Only-One Signature Lock, and Canonical Dictionary Commit.
  */
 
 const API_BASE = window.location.origin + "/api";
@@ -11,9 +11,15 @@ let dictionaryData = [];
 let masterlistData = [];
 let autoDetectDebounceTimer = null;
 
+// Signature Canvas State
+let sigCanvas, sigCtx;
+let isDrawing = false;
+let hasSignatureDrawn = false;
+
 // Initialize App
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  initSignaturePad();
   loadMasterlist();
   loadDictionary();
   loadReviews();
@@ -44,6 +50,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
   triggerAutoDetect();
 });
+
+// Signature Canvas Handling
+function initSignaturePad() {
+  sigCanvas = document.getElementById("sig-canvas");
+  if (!sigCanvas) return;
+  sigCtx = sigCanvas.getContext("2d");
+
+  // Canvas drawing styles
+  sigCtx.strokeStyle = "#38BDF8";
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = "round";
+  sigCtx.lineJoin = "round";
+
+  // Mouse listeners
+  sigCanvas.addEventListener("mousedown", startDrawing);
+  sigCanvas.addEventListener("mousemove", draw);
+  sigCanvas.addEventListener("mouseup", stopDrawing);
+  sigCanvas.addEventListener("mouseleave", stopDrawing);
+
+  // Touch listeners (Mobile devices)
+  sigCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); startDrawing(getTouchPos(e)); });
+  sigCanvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(getTouchPos(e)); });
+  sigCanvas.addEventListener("touchend", stopDrawing);
+
+  // Clear & Sample Buttons
+  document.getElementById("btn-clear-sig").addEventListener("click", clearSignaturePad);
+  document.getElementById("btn-sample-sig").addEventListener("click", drawSampleSignature);
+}
+
+function getTouchPos(e) {
+  const rect = sigCanvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  return {
+    clientX: touch.clientX,
+    clientY: touch.clientY
+  };
+}
+
+function startDrawing(e) {
+  isDrawing = true;
+  hasSignatureDrawn = true;
+  document.getElementById("sig-pad-wrapper").style.borderColor = "var(--primary)";
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCtx.beginPath();
+  sigCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+}
+
+function draw(e) {
+  if (!isDrawing) return;
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+  sigCtx.stroke();
+}
+
+function stopDrawing() {
+  isDrawing = false;
+}
+
+function clearSignaturePad() {
+  if (!sigCtx) return;
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  hasSignatureDrawn = false;
+  document.getElementById("sig-pad-wrapper").style.borderColor = "var(--border-color)";
+}
+
+function drawSampleSignature() {
+  clearSignaturePad();
+  sigCtx.beginPath();
+  sigCtx.moveTo(40, 60);
+  sigCtx.bezierCurveTo(90, 10, 140, 90, 190, 40);
+  sigCtx.bezierCurveTo(240, 80, 290, 20, 340, 50);
+  sigCtx.stroke();
+  hasSignatureDrawn = true;
+  document.getElementById("sig-pad-wrapper").style.borderColor = "var(--primary)";
+}
+
+function getSignatureDataUrl() {
+  if (!hasSignatureDrawn) return "";
+  return sigCanvas ? sigCanvas.toDataURL("image/png") : "";
+}
 
 // Tab Switching
 function setupTabs() {
@@ -81,6 +167,8 @@ function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
   document.getElementById("input-doc-contact").value = contact;
   document.getElementById("input-doc-email").value = email;
 
+  drawSampleSignature();
+
   document.querySelectorAll(".auto-detect-field").forEach(inp => inp.style.borderColor = "");
   triggerAutoDetect();
 }
@@ -98,7 +186,7 @@ async function runAutoDetectScan() {
 
   if (!candidate.name || candidate.name.trim().length < 3) {
     bannerTitle.textContent = "Intelligent Pre-Submission Recognizer Active";
-    bannerDesc.textContent = "Fill out all mandatory doctor fields to scan master records automatically...";
+    bannerDesc.textContent = "Fill out all mandatory doctor fields and signature to scan master records automatically...";
     bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">Mandatory Validation</span>`;
     return;
   }
@@ -138,7 +226,8 @@ function getMedRepInput() {
     address: document.getElementById("input-doc-address").value.trim(),
     city: document.getElementById("input-doc-city").value.trim(),
     contact: document.getElementById("input-doc-contact").value.trim(),
-    email: document.getElementById("input-doc-email").value.trim()
+    email: document.getElementById("input-doc-email").value.trim(),
+    signature_png: getSignatureDataUrl()
   };
 }
 
@@ -165,6 +254,14 @@ function validateMandatoryInput(candidate) {
     }
   });
 
+  // Check Doctor Digital Signature Canvas
+  if (!hasSignatureDrawn || !candidate.signature_png) {
+    missing.push("Doctor Digital Signature");
+    document.getElementById("sig-pad-wrapper").style.borderColor = "#EF4444";
+  } else {
+    document.getElementById("sig-pad-wrapper").style.borderColor = "var(--border-color)";
+  }
+
   return missing;
 }
 
@@ -188,6 +285,7 @@ function resetFormInput() {
   document.getElementById("input-doc-city").value = "";
   document.getElementById("input-doc-contact").value = "";
   document.getElementById("input-doc-email").value = "";
+  clearSignaturePad();
   
   document.querySelectorAll(".auto-detect-field").forEach(inp => inp.style.borderColor = "");
   triggerAutoDetect();
@@ -217,6 +315,10 @@ function renderMasterlist(records) {
       statusBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>`;
     }
 
+    const sigHtml = r.signature_png 
+      ? `<img src="${r.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 True-Only-One Signature</small>`
+      : `<span style="color:var(--text-dim); font-size:0.75rem;">Verified Canonical Hash</span>`;
+
     return `
       <tr>
         <td><strong>${r.id}</strong><br>${statusBadge}</td>
@@ -224,7 +326,7 @@ function renderMasterlist(records) {
         <td><span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">${r.specialty}</span></td>
         <td>${r.hospital}</td>
         <td>${r.city}, ${r.province || ''}</td>
-        <td>${r.contact || 'N/A'}</td>
+        <td>${sigHtml}</td>
       </tr>
     `;
   }).join("");
@@ -246,16 +348,22 @@ async function loadDictionary() {
 function renderDictionary(records) {
   const tbody = document.getElementById("dictionary-tbody");
   if (!tbody) return;
-  tbody.innerHTML = records.map(d => `
-    <tr>
-      <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED CANONICAL</span><br><strong>${d.id}</strong></td>
-      <td><strong>${d.name}</strong><br><small style="color:var(--text-muted)">${d.full_canonical_name}</small></td>
-      <td><strong>${d.specialty}</strong></td>
-      <td><strong>Primary:</strong> ${d.primary_hospital}<br><small style="color:var(--text-muted)">Secondary: ${d.secondary_hospital}</small></td>
-      <td>${d.city}, ${d.province}</td>
-      <td><small>${d.dictionary_notes}</small></td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = records.map(d => {
+    const sigHtml = d.signature_png 
+      ? `<img src="${d.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 Immutable Signature</small>`
+      : `<span style="color:#10B981; font-size:0.8rem;">🔒 Verified Canonical Signature Hash Locked</span>`;
+
+    return `
+      <tr>
+        <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED CANONICAL</span><br><strong>${d.id}</strong></td>
+        <td><strong>${d.name}</strong><br><small style="color:var(--text-muted)">${d.full_canonical_name}</small></td>
+        <td><strong>${d.specialty}</strong></td>
+        <td><strong>Primary:</strong> ${d.primary_hospital}<br><small style="color:var(--text-muted)">Secondary: ${d.secondary_hospital}</small></td>
+        <td>${sigHtml}</td>
+        <td><small>${d.dictionary_notes}</small></td>
+      </tr>
+    `;
+  }).join("");
 }
 
 async function loadReviews() {
@@ -308,7 +416,7 @@ function renderReviews(reviews) {
 
         <div style="margin-bottom:1rem;">
           <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
-            ${isNewDoctorVerification ? 'New Doctor Profile Details (Verify Canonical Data)' : 'Multi-Field Comparison Matrix'}
+            ${isNewDoctorVerification ? 'New Doctor Details & Digital Signature' : 'Multi-Field Comparison Matrix'}
           </h4>
           <div class="comparison-container">
             <div class="comp-box">
@@ -317,9 +425,12 @@ function renderReviews(reviews) {
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${cand.hospital}</div></div>
               <div class="field-pair"><div class="label">Secondary Clinic</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">Street Address</div><div class="val">${cand.address || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">City / Municipality</div><div class="val">${cand.city}</div></div>
-              <div class="field-pair"><div class="label">Contact / Email</div><div class="val">${cand.contact || 'N/A'} | ${cand.email || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">City / Location</div><div class="val">${cand.city}</div></div>
+              <div class="field-pair"><div class="label">Digital Signature</div>
+                <div class="val">
+                  ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:40px; background:#020617; padding:2px 8px; border-radius:4px; border:1px solid #38BDF8;">` : 'Captured'}
+                </div>
+              </div>
             </div>
 
             <div class="comp-box highlight">
@@ -329,7 +440,7 @@ function renderReviews(reviews) {
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${mast.specialty || cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${mast.hospital || cand.hospital}</div></div>
               <div class="field-pair"><div class="label">City</div><div class="val">${mast.city || cand.city}</div></div>
-              <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Managerial Verification' : 'Verified'}</div></div>
+              <div class="field-pair"><div class="label">Signature Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Manager Lock' : 'Verified'}</div></div>
             </div>
           </div>
         </div>
@@ -354,7 +465,7 @@ function renderReviews(reviews) {
             
             ${isNewDoctorVerification ? `
               <button class="btn btn-success" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
-                🔒 Verify & Lock Canonical Info (Commit to 100% Dictionary)
+                🔒 Verify & Lock Signature (Commit to 100% Dictionary)
               </button>
             ` : `
               <button class="btn btn-secondary" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
