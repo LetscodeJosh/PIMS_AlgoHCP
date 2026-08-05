@@ -1,7 +1,7 @@
 /**
  * PIMS_AlgoHCP Client Application Logic
- * Supports Auto-Dismissing Submission Toasts, Read-Only Merge History Before/After Snapshots,
- * and Zero-Match Fuzzy Penalty Score Calculation.
+ * Supports Clean Slate Mode, Dynamic MedRep Entry Simulation, Conditional Merge Audit Visibility,
+ * Auto-Dismissing Submission Toasts, and Zero-Match Fuzzy Penalty Score Calculation.
  */
 
 const API_BASE = window.location.origin + "/api";
@@ -39,6 +39,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-check-recognizer").addEventListener("click", runRecognizerCheck);
   document.getElementById("btn-submit-entry").addEventListener("click", submitMedRepEntry);
   document.getElementById("btn-run-workbench").addEventListener("click", runWorkbenchTest);
+
+  const resetBtn = document.getElementById("btn-reset-clean-slate");
+  if (resetBtn) resetBtn.addEventListener("click", resetToCleanSlate);
+
+  const seedBtn = document.getElementById("btn-load-benchmark-preset");
+  if (seedBtn) seedBtn.addEventListener("click", loadBenchmarkPresets);
   
   document.getElementById("warning-modal-close").addEventListener("click", closeWarningModal);
   document.getElementById("warning-modal-btn").addEventListener("click", closeWarningModal);
@@ -127,6 +133,40 @@ function getSignatureDataUrl() {
   return sigCanvas ? sigCanvas.toDataURL("image/png") : "";
 }
 
+// Clean Slate & Preset Dataset Handlers
+async function resetToCleanSlate() {
+  if (!confirm("Are you sure you want to reset all data to a Clean Slate? Masterlist, Dictionary, and Reviews will be cleared so you can simulate real-world MedRep encoding from day 1.")) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/reset-data`, { method: "POST" });
+    const data = await res.json();
+    if (data.status === "success") {
+      showSubmissionToast({ name: "Clean Slate Initialized", specialty: "Database Reset", hospital: "PIMS System", city: "All Data Cleared" }, "CLEAN_SLATE_RESET", data.message);
+      resetFormInput();
+      await loadMasterlist();
+      await loadDictionary();
+      await loadReviews();
+    }
+  } catch (e) {
+    console.error("Reset error:", e);
+  }
+}
+
+async function loadBenchmarkPresets() {
+  try {
+    const res = await fetch(`${API_BASE}/seed-data`, { method: "POST" });
+    const data = await res.json();
+    if (data.status === "success") {
+      showSubmissionToast({ name: "Benchmark Dataset Loaded", specialty: "Demo Presets", hospital: "PIMS System", city: "Sample Data Ready" }, "BENCHMARK_DATA_LOADED", data.message);
+      await loadMasterlist();
+      await loadDictionary();
+      await loadReviews();
+    }
+  } catch (e) {
+    console.error("Seed error:", e);
+  }
+}
+
 // Tab Switching
 function setupTabs() {
   const tabs = document.querySelectorAll(".tab-btn");
@@ -203,6 +243,10 @@ async function runAutoDetectScan() {
           ${top.tier}
         </span>
       `;
+    } else {
+      bannerTitle.textContent = "Intelligent Pre-Submission Recognizer Active";
+      bannerDesc.textContent = "No master matches found yet. New doctor record will be queued for Manager Verification.";
+      bannerBadge.innerHTML = `<span class="badge" style="background:rgba(239, 68, 68, 0.2); color:#EF4444">New Doctor Candidate</span>`;
     }
   } catch (e) {
     console.error("Auto detect scan error:", e);
@@ -283,7 +327,7 @@ function resetFormInput() {
   triggerAutoDetect();
 }
 
-// REQUIREMENT 1: FLOATING AUTO-DISMISSING SUBMISSION TOAST NOTIFICATION
+// FLOATING AUTO-DISMISSING SUBMISSION TOAST NOTIFICATION
 function showSubmissionToast(submittedData, actionTaken, message) {
   const container = document.getElementById("toast-container");
   if (!container) return;
@@ -292,21 +336,20 @@ function showSubmissionToast(submittedData, actionTaken, message) {
   toast.className = "toast-card";
   toast.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-      <strong style="color:var(--primary); font-size:0.85rem; text-transform:uppercase;">🚀 Submission Processed</strong>
+      <strong style="color:var(--primary-light); font-size:0.85rem; text-transform:uppercase;">🚀 Submission Processed</strong>
       <span style="font-size:0.75rem; color:var(--text-muted);">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);">${submittedData.name}</div>
+    <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF;">${submittedData.name}</div>
     <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem;">
       ${submittedData.specialty} | ${submittedData.hospital} | ${submittedData.city}
     </div>
-    <div style="font-size:0.78rem; color:var(--success); background:rgba(16,185,129,0.1); padding:0.3rem 0.5rem; border-radius:4px;">
+    <div style="font-size:0.78rem; color:var(--success); background:rgba(16,185,129,0.15); padding:0.3rem 0.5rem; border-radius:4px;">
       <strong>Action:</strong> ${actionTaken}
     </div>
   `;
 
   container.appendChild(toast);
 
-  // Auto-dismiss / hide automatically after 4.5 seconds
   setTimeout(() => {
     toast.classList.add("hide");
     setTimeout(() => {
@@ -315,8 +358,8 @@ function showSubmissionToast(submittedData, actionTaken, message) {
   }, 4500);
 }
 
-// REQUIREMENT 2: READ-ONLY MERGE HISTORY SNAPSHOT INSPECTION MODAL
-async function openMergeSnapshotModal(reviewId) {
+// CONDITIONAL READ-ONLY MERGE HISTORY SNAPSHOT MODAL
+async function openMergeSnapshotModal(targetMasterId) {
   const backdrop = document.getElementById("snapshot-modal-backdrop");
   const content = document.getElementById("snapshot-modal-body");
 
@@ -324,10 +367,17 @@ async function openMergeSnapshotModal(reviewId) {
     const res = await fetch(`${API_BASE}/merge-history`);
     const data = await res.json();
     if (data.status === "success") {
-      const historyItem = data.history.find(h => h.review_id === reviewId) || data.history[data.history.length - 1];
+      const historyItem = data.history.find(h => h.merge_snapshot && h.merge_snapshot.master_id === targetMasterId) 
+                         || data.history.find(h => h.review_id === targetMasterId) 
+                         || data.history[data.history.length - 1];
 
-      if (!historyItem || !historyItem.merge_snapshot) {
-        content.innerHTML = `<p style="color:var(--text-muted)">No snapshot data found for this record.</p>`;
+      if (!historyItem || !historyItem.merge_snapshot || Object.keys(historyItem.merge_snapshot).length === 0) {
+        content.innerHTML = `
+          <div style="text-align:center; padding:2rem;">
+            <p style="color:var(--text-muted); font-size:0.9rem;">No merge history snapshot available for this master record.</p>
+            <small style="color:var(--text-dim)">Merge audit snapshots are only generated when candidate data is merged or linked into an existing Master Profile.</small>
+          </div>
+        `;
         backdrop.classList.add("active");
         return;
       }
@@ -338,20 +388,20 @@ async function openMergeSnapshotModal(reviewId) {
       const after = snap.master_after || {};
 
       content.innerHTML = `
-        <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
           <span style="color:#EF4444; font-weight:700; font-size:0.82rem;">🔒 READ-ONLY AUDIT VIEW (CANNOT BE EDITED)</span>
           <span style="font-size:0.78rem; color:var(--text-muted)">Resolved by: ${snap.resolved_by || 'Manager'} on ${snap.resolved_at || ''}</span>
         </div>
 
         <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
-          Before & After Merge Data Comparison
+          Before & After Merge Data Comparison Matrix
         </h4>
 
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem;">
           
           <!-- Box 1: Submitted Candidate Record -->
           <div class="comp-box">
-            <h4 style="color:var(--primary); font-size:0.82rem; margin-bottom:0.5rem;">1. Submitted Candidate (Before)</h4>
+            <h4 style="color:var(--primary-light); font-size:0.82rem; margin-bottom:0.5rem;">1. Submitted Candidate (Before)</h4>
             <div class="field-pair"><div class="label">Name</div><div class="val">${cand.name || 'N/A'}</div></div>
             <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty || 'N/A'}</div></div>
             <div class="field-pair"><div class="label">Hospital</div><div class="val">${cand.hospital || 'N/A'}</div></div>
@@ -417,29 +467,47 @@ async function loadMasterlist() {
   }
 }
 
+// CONDITIONAL MERGE AUDIT BUTTON VISIBILITY IN MASTERLIST
 function renderMasterlist(records) {
   const tbody = document.getElementById("masterlist-tbody");
   if (!tbody) return;
+
+  if (records.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding:2.5rem; color:var(--text-muted)">
+          <div style="font-size:1.5rem; margin-bottom:0.5rem;">🌱 Clean Slate Mode Active</div>
+          <div>No Master Profiles in Database. Encode doctor entries under <strong>Doctor Entry</strong> tab to simulate real-world MedRep submissions!</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   tbody.innerHTML = records.map(r => {
-    let statusBadge = `<span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">VERIFIED</span>`;
+    let statusBadge = `<span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary-light);">VERIFIED</span>`;
     if (r.status === "PENDING_MANAGERIAL_VERIFICATION") {
       statusBadge = `<span class="badge" style="background:rgba(245, 158, 11, 0.2); color:#F59E0B;">PENDING MANAGER VERIFICATION</span>`;
     } else if (r.status === "VERIFIED_LOCKED") {
       statusBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>`;
     }
 
+    // REQUIREMENT 1: Only render View Merge Audit button IF merge history exists
+    const hasMerge = r.has_merge_history === true;
+    const mergeBtnHtml = hasMerge ? `
+      <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="openMergeSnapshotModal('${r.id}')">
+        👁️ View Merge Audit (Read-Only)
+      </button>
+    ` : `<span style="color:var(--text-dim); font-size:0.78rem;">N/A (No Merge History)</span>`;
+
     return `
       <tr>
         <td><strong>${r.id}</strong><br>${statusBadge}</td>
         <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name}</small></td>
-        <td><span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">${r.specialty}</span></td>
+        <td><span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${r.specialty}</span></td>
         <td>${r.hospital}</td>
         <td>${r.city}, ${r.province || ''}</td>
-        <td>
-          <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.6rem;" onclick="openMergeSnapshotModal('REV-101')">
-            👁️ View Merge Audit (Read-Only)
-          </button>
-        </td>
+        <td>${mergeBtnHtml}</td>
       </tr>
     `;
   }).join("");
@@ -461,6 +529,19 @@ async function loadDictionary() {
 function renderDictionary(records) {
   const tbody = document.getElementById("dictionary-tbody");
   if (!tbody) return;
+
+  if (records.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding:2.5rem; color:var(--text-muted)">
+          <div style="font-size:1.5rem; margin-bottom:0.5rem;">📖 Verified Dictionary Empty</div>
+          <div>When a Manager approves a New Doctor submission, canonical records and True-Only-One Signatures will auto-commit here!</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   tbody.innerHTML = records.map(d => {
     const sigHtml = d.signature_png 
       ? `<img src="${d.signature_png}" style="height:30px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 Immutable Signature</small>`
@@ -518,7 +599,7 @@ function renderReviews(reviews) {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
           <div>
             <span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B; margin-right:0.4rem;">${rev.review_id}</span>
-            <span class="badge" style="background:rgba(14, 165, 233, 0.2); color:var(--primary);">${rev.current_stage}</span>
+            <span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${rev.current_stage}</span>
             ${isNewDoctorVerification ? `<span class="badge" style="background:rgba(139,92,246,0.2); color:#8B5CF6; margin-left:0.4rem;">NEW DOCTOR VERIFICATION</span>` : ''}
           </div>
           <div style="text-align:right">
@@ -530,8 +611,8 @@ function renderReviews(reviews) {
         <div style="margin-bottom:0.75rem;">
           <div class="comparison-container">
             <div class="comp-box">
-              <h4 style="color:var(--primary); font-size:0.82rem; margin-bottom:0.4rem;">Submitted Entry (MedRep)</h4>
-              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:#0EA5E9">${cand.name}</div></div>
+              <h4 style="color:var(--primary-light); font-size:0.82rem; margin-bottom:0.4rem;">Submitted Entry (MedRep)</h4>
+              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:var(--primary-light)">${cand.name}</div></div>
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${cand.hospital}</div></div>
               <div class="field-pair"><div class="label">Secondary Clinic</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
@@ -621,9 +702,9 @@ function openRecognizerModal(candidate, matches) {
   const modalBody = document.getElementById("modal-body-content");
 
   modalBody.innerHTML = `
-    <div style="background:rgba(14, 165, 233, 0.1); border:1px solid var(--border-glow); padding:0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem;">
-      <h4 style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; margin-bottom:0.2rem;">Submitted Candidate Input</h4>
-      <div style="font-size:1rem; font-weight:700;">${candidate.name}</div>
+    <div style="background:rgba(37, 99, 235, 0.15); border:1px solid var(--border-glow); padding:0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem;">
+      <h4 style="color:var(--primary-light); font-size:0.82rem; text-transform:uppercase; margin-bottom:0.2rem;">Submitted Candidate Input</h4>
+      <div style="font-size:1rem; font-weight:700; color:#FFFFFF">${candidate.name}</div>
       <div style="font-size:0.8rem; color:var(--text-muted);">${candidate.specialty} | ${candidate.hospital} | ${candidate.city}</div>
     </div>
 
@@ -631,11 +712,13 @@ function openRecognizerModal(candidate, matches) {
       Algorithm Recognizer Matches (${matches.length} Master Candidates Found)
     </h4>
 
+    ${matches.length === 0 ? `<p style="color:var(--text-muted); padding:1rem; text-align:center;">No existing master matches found. This new doctor will be queued for Manager Verification.</p>` : ''}
+
     ${matches.map(m => `
-      <div style="background:rgba(2, 6, 23, 0.6); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.8rem; margin-bottom:0.75rem;">
+      <div style="background:rgba(5, 12, 30, 0.7); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.8rem; margin-bottom:0.75rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
           <div>
-            <strong style="font-size:0.95rem; color:var(--text-main);">${m.master_record.name}</strong>
+            <strong style="font-size:0.95rem; color:#FFFFFF;">${m.master_record.name}</strong>
             <small style="margin-left:0.4rem; color:var(--text-dim)">ID: ${m.master_id}</small>
           </div>
           <div>
@@ -649,7 +732,6 @@ function openRecognizerModal(candidate, matches) {
           <strong>Hospital:</strong> ${m.master_record.hospital} | <strong>Specialty:</strong> ${m.master_record.specialty} | <strong>City:</strong> ${m.master_record.city}
         </div>
 
-        <!-- Requirement 3: Zero Match Penalty Status Display -->
         <div style="background:rgba(0,0,0,0.3); padding:0.6rem; border-radius:4px; font-size:0.75rem;">
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.4rem; margin-bottom:0.4rem;">
             <div>Name Match: <strong>${m.breakdown.name.score}%</strong> (${m.breakdown.name.status})</div>
@@ -713,7 +795,6 @@ async function submitMedRepEntry() {
     });
     const data = await res.json();
     if (data.status === "success") {
-      // REQUIREMENT 1: Show auto-dismissing toast notification
       showSubmissionToast(candidate, data.action_taken, data.message);
 
       closeModal();
@@ -803,6 +884,7 @@ function openDictionaryModal(doctorNameQuery) {
     <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.75rem;">
       Viewing 100% Verified Canonical Reference Entries:
     </p>
+    ${displayList.length === 0 ? `<p style="color:var(--text-muted); padding:1rem; text-align:center;">No entries in Verified Dictionary yet. Approved new doctor profiles will automatically commit here.</p>` : ''}
     ${displayList.map(d => `
       <div style="background:rgba(15,23,42,0.8); border:1px solid var(--success); border-radius:var(--radius-sm); padding:0.8rem; margin-bottom:0.75rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
@@ -815,7 +897,7 @@ function openDictionaryModal(doctorNameQuery) {
           <div><strong>Primary Hospital:</strong> ${d.primary_hospital}</div>
           <div><strong>Secondary Clinic:</strong> ${d.secondary_hospital}</div>
           <div><strong>Official Phone:</strong> ${d.official_contact}</div>
-          <div style="color:var(--primary); margin-top:0.3rem;"><em>${d.dictionary_notes}</em></div>
+          <div style="color:var(--primary-light); margin-top:0.3rem;"><em>${d.dictionary_notes}</em></div>
         </div>
       </div>
     `).join("")}

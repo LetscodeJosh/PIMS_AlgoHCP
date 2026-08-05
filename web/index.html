@@ -18,23 +18,34 @@
       </div>
     </div>
 
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="tab-medrep">
-        📝 Doctor Entry
-      </button>
-      <button class="tab-btn" data-tab="tab-reviews">
-        ⚖️ Manager Reviews <span class="tab-badge" id="review-badge-count">0</span>
-      </button>
-      <button class="tab-btn" data-tab="tab-dictionary">
-        📖 Verified Dictionary
-      </button>
-      <button class="tab-btn" data-tab="tab-masterlist">
-        🗂️ Masterlist
-      </button>
-      <button class="tab-btn" data-tab="tab-workbench">
-        🔬 Algo Inspector
-      </button>
-    </nav>
+    <div style="display:flex; align-items:center; gap:0.6rem;">
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-medrep">
+          📝 Doctor Entry
+        </button>
+        <button class="tab-btn" data-tab="tab-reviews">
+          ⚖️ Manager Reviews <span class="tab-badge" id="review-badge-count">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-dictionary">
+          📖 Verified Dictionary
+        </button>
+        <button class="tab-btn" data-tab="tab-masterlist">
+          🗂️ Masterlist
+        </button>
+        <button class="tab-btn" data-tab="tab-workbench">
+          🔬 Algo Inspector
+        </button>
+      </nav>
+
+      <div style="display:flex; gap:0.4rem;">
+        <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.35rem 0.65rem;" id="btn-reset-clean-slate" title="Clear all data to simulate real-world day-1 entry">
+          🧹 Clean Slate
+        </button>
+        <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.35rem 0.65rem;" id="btn-load-benchmark-preset" title="Load sample benchmark demo dataset">
+          🌱 Benchmark Presets
+        </button>
+      </div>
+    </div>
   </header>
 
   <!-- Main Container -->

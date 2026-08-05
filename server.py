@@ -1,7 +1,7 @@
 """
 PIMS_AlgoHCP Standalone Microservice Server - Protected & Unthrottled.
 Runs isolated microservice with Digital Signature Support, Immutable True-Only-One Signature Lock,
-Before-and-After Read-Only Merge History, and Dictionary Auto-Commit.
+Clean Slate Real-World Simulation Mode, Conditional Merge Audit History, and Dictionary Auto-Commit.
 """
 
 import http.server
@@ -20,26 +20,12 @@ from hcp_matcher.security import SecurityShield
 PORT = 8080
 WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
-masterlist = list(SAMPLE_MASTERLIST)
-dictionary_mgr = MasterDictionary(list(SAMPLE_DICTIONARY))
+# Clean Slate Data Stores (Simulates real-world production day-1 entry)
+masterlist = []
+dictionary_mgr = MasterDictionary([])
 scorer = HCPMatchScorer()
 workflow_mgr = EscalationWorkflowManager()
 security_shield = SecurityShield()
-
-# Pre-seed a 50-50 pending review sample
-sample_5050_candidate = {
-    "medrep_name": "MedRep Santos",
-    "name": "Dr. Santa Maria Cruz",
-    "specialty": "Cardiology",
-    "hospital": "St. Lukes Hospital BGC",
-    "secondary_hospital": "Makati Med Annex",
-    "address": "32nd St, BGC",
-    "city": "Taguig City",
-    "contact": "09171234567",
-    "email": "dr.cruz@stlukes.ph"
-}
-matches_5050 = [scorer.score_pair(sample_5050_candidate, masterlist[0])]
-workflow_mgr.add_to_queue(sample_5050_candidate, matches_5050)
 
 class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -105,7 +91,37 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
-        if path == "/api/match":
+        if path == "/api/reset-data":
+            global masterlist, dictionary_mgr, workflow_mgr
+            masterlist.clear()
+            dictionary_mgr.dictionary_db.clear()
+            workflow_mgr.review_queue.clear()
+            workflow_mgr.history.clear()
+            workflow_mgr.counter = 100
+            self._send_json({"status": "success", "message": "System reset to Clean Slate. Masterlist and Dictionary cleared."})
+
+        elif path == "/api/seed-data":
+            masterlist.clear()
+            masterlist.extend(list(SAMPLE_MASTERLIST))
+            dictionary_mgr.dictionary_db.clear()
+            dictionary_mgr.dictionary_db.extend(list(SAMPLE_DICTIONARY))
+            
+            sample_cand = {
+                "medrep_name": "MedRep Santos",
+                "name": "Dr. Santa Maria Cruz",
+                "specialty": "Cardiology",
+                "hospital": "St. Lukes Hospital BGC",
+                "secondary_hospital": "Makati Med Annex",
+                "address": "32nd St, BGC",
+                "city": "Taguig City",
+                "contact": "09171234567",
+                "email": "dr.cruz@stlukes.ph"
+            }
+            matches = [scorer.score_pair(sample_cand, masterlist[0])]
+            workflow_mgr.add_to_queue(sample_cand, matches)
+            self._send_json({"status": "success", "message": "Benchmark dataset loaded successfully."})
+
+        elif path == "/api/match":
             candidate = payload.get("candidate", {})
             results = []
             for master_rec in masterlist:
@@ -157,6 +173,9 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if score_pct >= 88.0:
                 action_taken = "AUTO_MERGED"
                 msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']})."
+                for m in masterlist:
+                    if m["id"] == top_match["master_id"]:
+                        m["has_merge_history"] = True
             elif score_pct >= 50.0:
                 review_item = workflow_mgr.add_to_queue(candidate, matches, "MATCH_REVIEW")
                 action_taken = "PENDING_MANAGER_REVIEW"
@@ -176,7 +195,8 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "email": candidate.get("email", ""),
                     "signature_png": candidate.get("signature_png", ""),
                     "signature_status": "PENDING_VERIFICATION",
-                    "status": "PENDING_MANAGERIAL_VERIFICATION"
+                    "status": "PENDING_MANAGERIAL_VERIFICATION",
+                    "has_merge_history": False
                 }
                 masterlist.append(new_rec)
                 
@@ -198,6 +218,8 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             candidate = payload.get("candidate", {})
             master_id = payload.get("master_id")
             target_rec = next((m for m in masterlist if m["id"] == master_id), None)
+            if target_rec:
+                target_rec["has_merge_history"] = True
             
             log_item = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -243,6 +265,8 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if m["id"] == m_id:
                         m["status"] = "VERIFIED_LOCKED"
                         m["signature_status"] = "LOCKED_TRUE_ONLY_ONE"
+                        if action == "MERGE_RECORD":
+                            m["has_merge_history"] = True
                         if cand.get("signature_png"):
                             m["signature_png"] = cand.get("signature_png")
                         m["verified_by"] = actor
@@ -269,6 +293,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             master_after = next((dict(m) for m in masterlist if m["id"] == m_id), {})
 
             snapshot = {
+                "master_id": m_id,
                 "candidate_submitted": cand,
                 "master_before": master_before,
                 "master_after": master_after,
