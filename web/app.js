@@ -574,14 +574,14 @@ function renderReviews(reviews) {
             
             ${isNewDoctorVerification ? `
               <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
-                🔒 Verify & Lock Signature (Commit to 100% Dictionary)
+                🔒 Confirm 100% Legit Doctor Info & Commit to Masterlist
               </button>
             ` : `
               <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
                 ❌ Keep Separate
               </button>
               <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
-                ✅ Approve & Merge HCP Profile
+                ✅ Higher Position Approve & Merge Master Record
               </button>
             `}
           </div>
@@ -756,7 +756,7 @@ async function escalateReview(reviewId) {
 }
 
 async function resolveReview(reviewId, action, targetMasterId) {
-  const actor = prompt("Enter your Name/Role for Audit Log:", "Regional Director / Head Steward");
+  const actor = prompt("Enter Higher Position Approver Name/Role:", "Regional Director / Head Data Steward");
   if (!actor) return;
 
   try {
@@ -772,10 +772,16 @@ async function resolveReview(reviewId, action, targetMasterId) {
     });
     const data = await res.json();
     if (data.success) {
-      alert(data.message);
+      showSubmissionToast(
+        { name: `Review ${reviewId}`, specialty: "Higher Position Approval", hospital: "Verified Masterlist", city: "Metro Manila" },
+        action,
+        `Doctor information confirmed 100% legit by ${actor}. Profile activated in Masterlist & Dictionary to eliminate future duplicates.`
+      );
       await loadReviews();
       await loadMasterlist();
       await loadDictionary();
+    } else {
+      alert(data.message);
     }
   } catch (e) {
     console.error("Resolution error:", e);
