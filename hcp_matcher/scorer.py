@@ -1,6 +1,7 @@
 """
 Multi-Attribute Match Scorer & ML Probabilistic Classifier.
 Calculates confidence score across ALL system fields without mandatory License ID or Birthdate.
+Enforces Strict Zero-Match Penalty Rule (If a field does not match, returns 0.0% fuzzy match score).
 """
 
 import math
@@ -56,6 +57,10 @@ class HCPMatchScorer:
         if sx_match:
             base_name_score = min(1.0, base_name_score + 0.05)
 
+        # Strict Zero-Match Threshold for Name
+        if base_name_score < 0.40:
+            base_name_score = 0.0
+
         return {
             "score": round(base_name_score, 4),
             "jw": round(jw_score, 4),
@@ -74,7 +79,6 @@ class HCPMatchScorer:
         if n1 == n2:
             return 1.0
 
-        # Token overlap check
         tokens1 = set(n1.split())
         tokens2 = set(n2.split())
         if tokens1 and tokens2:
@@ -82,13 +86,16 @@ class HCPMatchScorer:
             if overlap >= 0.8:
                 return 1.0
 
-        return jaro_winkler_distance(n1, n2)
+        score = jaro_winkler_distance(n1, n2)
+        # Strict Zero-Match Threshold for text fields
+        if score < 0.40:
+            return 0.0
+        return score
 
     def calculate_contact_score(self, c1: str, c2: str) -> float:
         """Standardize and compare phone/contact numbers."""
         if not c1 or not c2:
             return 0.0
-        # Keep digits only
         d1 = re.sub(r'\D', '', str(c1))
         d2 = re.sub(r'\D', '', str(c2))
         if not d1 or not d2:
@@ -107,12 +114,15 @@ class HCPMatchScorer:
         clean2 = e2.strip().lower()
         if clean1 == clean2:
             return 1.0
-        return jaro_winkler_distance(clean1, clean2)
+        score = jaro_winkler_distance(clean1, clean2)
+        if score < 0.40:
+            return 0.0
+        return score
 
     def score_pair(self, candidate: dict, master_record: dict) -> dict:
         """
         Intelligently evaluate candidate record against a masterlist record across ALL system fields.
-        Returns detailed field-by-field breakdown, weighted percentage score, tier, and action.
+        Enforces Strict Zero-Match Penalty Rule (If a field does not match, returns 0.0% in fuzzy matching).
         """
         field_scores = {}
         field_weights = {}
@@ -174,11 +184,15 @@ class HCPMatchScorer:
         normalized_breakdown = {}
 
         for f, score in field_scores.items():
+            # Zero-Match Adjustment: If field is present but score < 0.40, force strictly 0.0
+            if score < 0.40:
+                score = 0.0
+
             w = field_weights[f] / total_weight
             raw_weighted += score * w
             
             # Status classification for each field
-            status = "NO_MATCH"
+            status = "ZERO_MATCH (0%)"
             if score >= 0.95:
                 status = "EXACT_MATCH"
             elif score >= 0.70:
@@ -192,10 +206,9 @@ class HCPMatchScorer:
                 "status": status
             }
 
-        # Include specific name details under name breakdown
         normalized_breakdown["name"]["details"] = name_res
 
-        # ML Classifier Sigmoid Calibration (Smooth probability curve output)
+        # ML Classifier Sigmoid Calibration
         z = 6.5 * (raw_weighted - 0.52)
         prob_ml = 1.0 / (1.0 + math.exp(-z))
         confidence_pct = round(prob_ml * 100, 1)

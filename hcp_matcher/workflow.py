@@ -1,14 +1,14 @@
 """
 Hierarchical Managerial Approval & Escalation Engine.
-Handles review queue for 50-50 matches and new doctor canonical verification.
+Handles review queue, new doctor verification, and read-only merge before/after audit history.
 """
 
 from datetime import datetime
 
 class EscalationWorkflowManager:
     """
-    Manages the review queue, new doctor verification, and escalation chain:
-    MedRep -> Level 1 District Manager -> Level 2 Regional Director / Data Steward.
+    Manages the review queue, new doctor verification, escalation chain,
+    and before-and-after merge audit history snapshots.
     """
 
     def __init__(self):
@@ -58,9 +58,7 @@ class EscalationWorkflowManager:
         return [item for item in self.review_queue if item["status"] == "PENDING" and item["assigned_level"] == level]
 
     def escalate(self, review_id: str, actor_name: str, reason: str = "") -> dict:
-        """
-        Escalate record to higher managerial position when Level 1 Manager doesn't know the record.
-        """
+        """Escalate record to higher managerial position when Level 1 Manager doesn't know the record."""
         for item in self.review_queue:
             if item["review_id"] == review_id:
                 if item["assigned_level"] < 2:
@@ -77,9 +75,9 @@ class EscalationWorkflowManager:
                     return {"success": False, "message": "Record is already at the highest approval level."}
         return {"success": False, "message": "Review ID not found."}
 
-    def resolve(self, review_id: str, action: str, actor_name: str, target_master_id: str = None, notes: str = "") -> dict:
+    def resolve(self, review_id: str, action: str, actor_name: str, target_master_id: str = None, notes: str = "", merge_snapshot: dict = None) -> dict:
         """
-        Resolve review item with action: 'MERGE_RECORD', 'KEEP_SEPARATE', or 'VERIFY_AND_LOCK_CANONICAL'.
+        Resolve review item and store read-only Before-and-After merge snapshot.
         """
         for item in self.review_queue:
             if item["review_id"] == review_id:
@@ -88,6 +86,7 @@ class EscalationWorkflowManager:
                 item["resolved_by"] = actor_name
                 item["resolved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 item["target_master_id"] = target_master_id
+                item["merge_snapshot"] = merge_snapshot or {}
                 item["escalation_history"].append({
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "action": f"DECISION_{action}",

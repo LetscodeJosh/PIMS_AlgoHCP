@@ -3,27 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PIMS_AlgoHCP - HCP Deduplication & Intelligent Recognition System</title>
+  <title>PIMS_AlgoHCP Recognizer - Minimalist Matcher Engine</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- Top Header & Navigation -->
+  <!-- Minimalist App Header -->
   <header class="app-header">
     <div class="brand-container">
       <div class="brand-logo">🩺</div>
       <div class="brand-title">
         <h1>PIMS_AlgoHCP Recognizer</h1>
-        <span>Multi-Attribute Intelligent Matcher & Linkage Engine</span>
+        <span>Intelligent Deduplication Engine</span>
       </div>
     </div>
 
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="tab-medrep">
-        📝 MedRep Entry
+        📝 Doctor Entry
       </button>
       <button class="tab-btn" data-tab="tab-reviews">
-        ⚖️ 50-50 Manager Reviews <span class="tab-badge" id="review-badge-count">0</span>
+        ⚖️ Manager Reviews <span class="tab-badge" id="review-badge-count">0</span>
       </button>
       <button class="tab-btn" data-tab="tab-dictionary">
         📖 Verified Dictionary
@@ -32,7 +32,7 @@
         🗂️ Masterlist
       </button>
       <button class="tab-btn" data-tab="tab-workbench">
-        🔬 Algo Workbench
+        🔬 Algo Inspector
       </button>
     </nav>
   </header>
@@ -42,23 +42,17 @@
 
     <!-- TAB 1: MEDREP ENTRY & RECOGNIZER -->
     <section id="tab-medrep" class="tab-content active">
-      <div class="section-header">
-        <h2 class="section-title">Medical Representative Doctor Entry</h2>
-        <p class="section-desc">
-          All doctor fields including <strong>Doctor Signature</strong> are mandatory. The system will block submission automatically if any field is left blank.
-        </p>
-      </div>
-
-      <!-- Real-Time Intelligent Pre-Submission Duplicate Detector Banner -->
-      <div id="live-detector-banner" style="background:rgba(15, 23, 42, 0.8); border:1px solid var(--border-color); padding:1rem 1.5rem; border-radius:var(--radius-lg); margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between; transition:all 0.3s ease;">
+      
+      <!-- Live Pre-Submission Duplicate Detector Banner -->
+      <div id="live-detector-banner" style="background:rgba(15, 23, 42, 0.8); border:1px solid var(--border-color); padding:0.9rem 1.25rem; border-radius:var(--radius-md); margin-bottom:1.25rem; display:flex; align-items:center; justify-content:space-between; transition:all 0.3s ease;">
         <div style="display:flex; align-items:center; gap:0.75rem;">
-          <div style="font-size:1.5rem;">⚡</div>
+          <div style="font-size:1.4rem;">⚡</div>
           <div>
-            <div style="font-weight:700; font-size:0.95rem; color:var(--text-main)" id="banner-title">
+            <div style="font-weight:700; font-size:0.9rem; color:var(--text-main)" id="banner-title">
               Intelligent Pre-Submission Recognizer Active
             </div>
-            <div style="font-size:0.82rem; color:var(--text-muted)" id="banner-desc">
-              Fill out all mandatory doctor fields and signature to scan master records automatically...
+            <div style="font-size:0.8rem; color:var(--text-muted)" id="banner-desc">
+              Type doctor details to scan master records automatically...
             </div>
           </div>
         </div>
@@ -69,8 +63,8 @@
 
       <div class="grid-2">
         <div class="card">
-          <h3 style="margin-bottom: 1.2rem; display:flex; align-items:center; gap:0.5rem;">
-            <span>📋 Doctor Information Form (All Fields Mandatory)</span>
+          <h3 style="margin-bottom: 1rem; font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
+            <span>📋 Doctor Information Form</span>
           </h3>
 
           <div class="form-group">
@@ -81,9 +75,6 @@
           <div class="form-group">
             <label>Doctor Full Name <span style="color:#EF4444">*</span></label>
             <input type="text" id="input-doc-name" class="form-control auto-detect-field" placeholder="e.g. Dr. Santa Maria Cruz" value="">
-            <small style="color:var(--text-dim); display:block; margin-top:0.3rem;">
-              Algorithm automatically normalizes titles ("Dr.", "M.D.") and prefixes ("St." ↔ "Santa", "Dela" ↔ "De La").
-            </small>
           </div>
 
           <div class="grid-2">
@@ -92,18 +83,18 @@
               <input type="text" id="input-doc-spec" class="form-control auto-detect-field" placeholder="e.g. Cardiology" value="">
             </div>
             <div class="form-group">
-              <label>Primary Hospital / Institution <span style="color:#EF4444">*</span></label>
+              <label>Primary Hospital <span style="color:#EF4444">*</span></label>
               <input type="text" id="input-doc-hosp" class="form-control auto-detect-field" placeholder="e.g. St. Lukes Hospital BGC" value="">
             </div>
           </div>
 
           <div class="grid-2">
             <div class="form-group">
-              <label>Secondary Hospital / Clinic <span style="color:#EF4444">*</span></label>
-              <input type="text" id="input-doc-sec-hosp" class="form-control auto-detect-field" placeholder="e.g. Makati Medical Center Annex" value="">
+              <label>Secondary Clinic <span style="color:#EF4444">*</span></label>
+              <input type="text" id="input-doc-sec-hosp" class="form-control auto-detect-field" placeholder="e.g. Makati Med Annex" value="">
             </div>
             <div class="form-group">
-              <label>Street / Barangay Address <span style="color:#EF4444">*</span></label>
+              <label>Street Address <span style="color:#EF4444">*</span></label>
               <input type="text" id="input-doc-address" class="form-control auto-detect-field" placeholder="e.g. 32nd St, BGC" value="">
             </div>
           </div>
@@ -124,25 +115,22 @@
           </div>
 
           <!-- Doctor Digital Signature Pad -->
-          <div class="form-group" style="margin-top:1rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-              <label style="margin-bottom:0;">Doctor Digital Signature <span style="color:#EF4444">*</span> (True-Only-One Immutable Signature)</label>
+          <div class="form-group" style="margin-top:0.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+              <label style="margin-bottom:0;">Doctor Signature <span style="color:#EF4444">*</span> (True-Only-One Signature)</label>
               <div>
-                <button type="button" class="btn btn-secondary" id="btn-clear-sig" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Clear Pad</button>
-                <button type="button" class="btn btn-secondary" id="btn-sample-sig" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Auto-Sign Sample</button>
+                <button type="button" class="btn btn-secondary" id="btn-clear-sig" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Clear</button>
+                <button type="button" class="btn btn-secondary" id="btn-sample-sig" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Auto-Sign</button>
               </div>
             </div>
-            <div id="sig-pad-wrapper" style="background:#0F172A; border:2px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; padding:0.5rem; position:relative;">
-              <canvas id="sig-canvas" width="450" height="110" style="background:#020617; border-radius:var(--radius-sm); cursor:crosshair; width:100%; height:110px;"></canvas>
-              <small style="color:var(--text-dim); display:block; margin-top:0.3rem;">
-                Draw doctor signature above with mouse/touch. Once locked by Manager, signature becomes immutable (True-Only-One Signature).
-              </small>
+            <div id="sig-pad-wrapper" style="background:#0F172A; border:1px dashed var(--border-color); border-radius:var(--radius-sm); text-align:center; padding:0.4rem;">
+              <canvas id="sig-canvas" width="450" height="90" style="background:#020617; border-radius:4px; cursor:crosshair; width:100%; height:90px;"></canvas>
             </div>
           </div>
 
-          <div style="display:flex; gap:1rem; margin-top:1rem;">
+          <div style="display:flex; gap:0.75rem; margin-top:1rem;">
             <button class="btn btn-secondary" id="btn-check-recognizer">
-              🔍 Scan Masterlist (Pop-up Detector)
+              🔍 Scan Masterlist
             </button>
             <button class="btn btn-primary" id="btn-submit-entry">
               🚀 Submit Doctor Record
@@ -151,25 +139,17 @@
         </div>
 
         <div class="card">
-          <h3 style="margin-bottom: 1rem;">ℹ️ Mandatory Validation & True-Only-One Signature Rules</h3>
-          <ul style="margin-left: 1.2rem; color: var(--text-muted); font-size:0.92rem; line-height:1.8;">
-            <li><strong>Mandatory Submission Rule:</strong> All 8 fields + Doctor Signature must be completely fulfilled before submitting.</li>
-            <li><strong>Single-Truth Signature Rule:</strong> Each verified doctor profile has exactly <strong>one true-only-one signature</strong>. Once verified and locked by Managerial Position, it is locked as immutable and cannot be altered.</li>
-            <li><strong>New Doctor Detection Pipeline:</strong> If score is &lt;50% (New Doctor detected), system creates draft profile, routes entry to <strong>Manager Review Queue</strong>, and commits locked canonical data + signature to the <strong>Verified Dictionary</strong> upon approval.</li>
-          </ul>
-
-          <div style="margin-top:1.5rem; background:rgba(14,165,233,0.1); border:1px solid var(--border-glow); padding:1rem; border-radius:var(--radius-md);">
-            <strong style="color:var(--primary); font-size:0.88rem; text-transform:uppercase;">Quick Fill Demo Presets (Auto-signs signature):</strong>
-            <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem;">
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santa Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Makati Med Annex', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟢 High Match (Auto-Merge Test)</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. St. Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'St Lukes Clinic', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟡 50-50 Match (Manager Queue Test)</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dra. Ma. Victoria Santos', 'Internal Medicine', 'Makati Medical Center', 'The Medical City', 'Amorsolo St', 'Makati City', '09201112233', 'v.santos@makatimed.ph')">Honorific Shift (Dra. Ma. vs Maria)</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Juan De La Cruz', 'Pediatrics', 'Philippine General Hospital', 'Manila Doctors Clinic', 'Taft Ave', 'Manila', '09189876543', 'juan.delacruz@pgh.gov.ph')">Surname Compound (Dela vs De La)</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Santo Tomas Reyes', 'Orthopedic Surgery', 'Asian Hospital and Medical Center', 'Muntinlupa Med', 'Civic Drive', 'Muntinlupa City', '09175554433', 'santo.reyes@asianhospital.com')">Santo / Sto. Prefix Shift</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Jose Protacio Rizal Junior', 'Ophthalmology', 'Cardinal Santos Medical Center', 'VRC Eye Clinic', 'Wilson St', 'San Juan City', '09193332211', 'j.rizal@cardinalsantos.ph')">Junior / Suffix Shift (Jr. vs Junior)</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Antonio Delos Reyes', 'Dermatology', 'The Medical City Pasig', 'St Lukes QC Clinic', 'Ortigas Ave', 'Pasig City', '09178889900', 'a.reyes@medicalcity.com.ph')">Delos / De Los Compound Shift</button>
-              <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.35rem 0.6rem;" onclick="loadPreset('Dr. Andres Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City General Hospital', 'Quezon Ave', 'Quezon City', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Doctor Test)</button>
-            </div>
+          <h3 style="margin-bottom: 0.75rem; font-size:1rem;">⚡ Quick Preset Benchmark Tests</h3>
+          
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Santa Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Makati Med Annex', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟢 High Match (≥88% Auto-Merge Test)</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. St. Maria Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'St Lukes Clinic', '32nd St, BGC', 'Taguig City', '09171234567', 'dr.cruz@stlukes.ph')">🟡 50-50 Match (Manager Queue Test)</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dra. Ma. Victoria Santos', 'Internal Medicine', 'Makati Medical Center', 'The Medical City', 'Amorsolo St', 'Makati City', '09201112233', 'v.santos@makatimed.ph')">Honorific Shift (Dra. Ma. vs Maria)</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Juan De La Cruz', 'Pediatrics', 'Philippine General Hospital', 'Manila Doctors Clinic', 'Taft Ave', 'Manila', '09189876543', 'juan.delacruz@pgh.gov.ph')">Surname Compound (Dela vs De La)</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Santo Tomas Reyes', 'Orthopedic Surgery', 'Asian Hospital and Medical Center', 'Muntinlupa Med', 'Civic Drive', 'Muntinlupa City', '09175554433', 'santo.reyes@asianhospital.com')">Santo / Sto. Prefix Shift</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Jose Protacio Rizal Junior', 'Ophthalmology', 'Cardinal Santos Medical Center', 'VRC Eye Clinic', 'Wilson St', 'San Juan City', '09193332211', 'j.rizal@cardinalsantos.ph')">Junior / Suffix Shift (Jr. vs Junior)</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Antonio Delos Reyes', 'Dermatology', 'The Medical City Pasig', 'St Lukes QC Clinic', 'Ortigas Ave', 'Pasig City', '09178889900', 'a.reyes@medicalcity.com.ph')">Delos / De Los Compound Shift</button>
+            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadPreset('Dr. Andres Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City General Hospital', 'Quezon Ave', 'Quezon City', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Doctor Profile Test)</button>
           </div>
         </div>
       </div>
@@ -178,24 +158,20 @@
     <!-- TAB 2: 50-50 MANAGER REVIEWS & ESCALATION -->
     <section id="tab-reviews" class="tab-content">
       <div class="section-header">
-        <h2 class="section-title">50-50 Match & New Doctor Managerial Approval Portal</h2>
-        <p class="section-desc">
-          Review uncertain (50%-50%) candidate matches and new doctor verification requests. Approvers inspect attributes & digital signatures before finalizing decisions.
-        </p>
+        <h2 class="section-title">50-50 Match & New Doctor Approval Portal</h2>
+        <p class="section-desc">Review candidate submissions, inspect signatures, and verify canonical records.</p>
       </div>
 
       <div id="reviews-container">
-        <!-- Rendered dynamically by app.js -->
+        <!-- Rendered dynamically -->
       </div>
     </section>
 
     <!-- TAB 3: VERIFIED DICTIONARY -->
     <section id="tab-dictionary" class="tab-content">
       <div class="section-header">
-        <h2 class="section-title">Verified Canonical HCP Reference Dictionary</h2>
-        <p class="section-desc">
-          100% correct baseline doctor information & locked true-only-one signatures. Approvers reference this dictionary before making final decisions.
-        </p>
+        <h2 class="section-title">Verified Canonical Reference Dictionary</h2>
+        <p class="section-desc">100% correct baseline doctor entries and immutable true-only-one signatures.</p>
       </div>
 
       <div class="card">
@@ -207,7 +183,7 @@
               <th>Verified Specialty</th>
               <th>Affiliated Hospitals</th>
               <th>True-Only-One Signature</th>
-              <th>Dictionary Reference Notes</th>
+              <th>Reference Notes</th>
             </tr>
           </thead>
           <tbody id="dictionary-tbody">
@@ -221,9 +197,7 @@
     <section id="tab-masterlist" class="tab-content">
       <div class="section-header">
         <h2 class="section-title">Active HCP Masterlist Directory</h2>
-        <p class="section-desc">
-          Current master HCP profiles stored in the system.
-        </p>
+        <p class="section-desc">Current master HCP profiles stored in the system with merge history audit access.</p>
       </div>
 
       <div class="card">
@@ -235,7 +209,7 @@
               <th>Specialty</th>
               <th>Primary Hospital</th>
               <th>City / Location</th>
-              <th>Signature Status</th>
+              <th>Actions / Audit</th>
             </tr>
           </thead>
           <tbody id="masterlist-tbody">
@@ -248,16 +222,14 @@
     <!-- TAB 5: WORKBENCH -->
     <section id="tab-workbench" class="tab-content">
       <div class="section-header">
-        <h2 class="section-title">Algorithm & Multi-Field Component Inspector Workbench</h2>
-        <p class="section-desc">
-          Test any 2 doctor records against the algorithm to observe real-time mathematical score calculation and confidence tier output across all fields.
-        </p>
+        <h2 class="section-title">Algorithm Component Inspector</h2>
+        <p class="section-desc">Calculate mathematical scores and zero-match penalties between any 2 doctor records.</p>
       </div>
 
       <div class="grid-2">
         <div class="card">
           <h4>Record A (Candidate Input)</h4>
-          <div class="form-group" style="margin-top:0.75rem;">
+          <div class="form-group" style="margin-top:0.5rem;">
             <label>Name</label>
             <input type="text" id="wb-name1" class="form-control" value="Dr. Santa Maria Cruz">
           </div>
@@ -277,7 +249,7 @@
 
         <div class="card">
           <h4>Record B (Master Record)</h4>
-          <div class="form-group" style="margin-top:0.75rem;">
+          <div class="form-group" style="margin-top:0.5rem;">
             <label>Name</label>
             <input type="text" id="wb-name2" class="form-control" value="Dr. Santa M. Cruz, M.D.">
           </div>
@@ -296,37 +268,38 @@
         </div>
       </div>
 
-      <div style="margin-top:1.5rem; text-align:center;">
-        <button class="btn btn-primary" id="btn-run-workbench" style="padding:0.9rem 2.5rem; font-size:1rem;">
-          ⚡ Calculate Multi-Attribute Match Confidence Score
+      <div style="margin-top:1.25rem; text-align:center;">
+        <button class="btn btn-primary" id="btn-run-workbench" style="padding:0.75rem 2rem;">
+          ⚡ Calculate Similarity Score
         </button>
       </div>
 
-      <div id="wb-results-container" style="margin-top:2rem;"></div>
+      <div id="wb-results-container" style="margin-top:1.5rem;"></div>
     </section>
 
   </main>
 
-  <!-- POP-UP WARNING MODAL (Mandatory Validation Warning) -->
+  <!-- FLOATING AUTO-DISMISSING SUBMISSION TOAST NOTIFICATIONS (Requirement 1) -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- POP-UP WARNING MODAL -->
   <div class="modal-backdrop" id="warning-modal-backdrop">
-    <div class="modal-card" style="max-width:550px; border-color:#EF4444;">
-      <div class="modal-header" style="background:rgba(239, 68, 68, 0.15);">
-        <h3 style="color:#EF4444">⚠️ Mandatory Fields Missing</h3>
-        <button class="btn btn-secondary" id="warning-modal-close" style="padding:0.3rem 0.6rem; border:none; background:transparent; font-size:1.2rem; color:#EF4444">✕</button>
+    <div class="modal-card" style="max-width:500px; border-color:#EF4444;">
+      <div class="modal-header">
+        <h3 style="color:#EF4444; font-size:1.05rem;">⚠️ Mandatory Fields Missing</h3>
+        <button class="btn btn-secondary" id="warning-modal-close" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem; color:#EF4444">✕</button>
       </div>
       <div class="modal-body" id="warning-modal-body">
-        <p style="color:var(--text-main); font-weight:600; margin-bottom:0.75rem;">
-          Submission blocked! The system will not submit the doctor record because the following mandatory fields are blank:
+        <p style="color:var(--text-main); font-size:0.85rem; font-weight:600; margin-bottom:0.6rem;">
+          Submission blocked! The following mandatory fields are blank:
         </p>
-        <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); padding:1rem; border-radius:var(--radius-md);">
-          <strong style="color:#EF4444; font-size:0.85rem; text-transform:uppercase;">Blank / Unfulfilled Mandatory Fields:</strong>
-          <ul id="warning-missing-list" style="margin-left:1.4rem; margin-top:0.5rem; color:var(--text-main); font-size:0.9rem; line-height:1.6;">
-            <!-- Missing fields populated dynamically -->
+        <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); padding:0.8rem; border-radius:var(--radius-sm);">
+          <ul id="warning-missing-list" style="margin-left:1.2rem; color:var(--text-main); font-size:0.85rem; line-height:1.5;">
           </ul>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary" id="warning-modal-btn" style="background:#EF4444;">Got It, Complete All Fields</button>
+        <button class="btn btn-primary" id="warning-modal-btn" style="background:#EF4444;">Complete All Fields</button>
       </div>
     </div>
   </div>
@@ -335,28 +308,42 @@
   <div class="modal-backdrop" id="modal-backdrop">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>🔍 Algorithm Detector Recognizer</h3>
-        <button class="btn btn-secondary" id="modal-close-btn" style="padding:0.3rem 0.6rem; border:none; background:transparent; font-size:1.2rem;">✕</button>
+        <h3>🔍 Algorithm Recognizer Detector</h3>
+        <button class="btn btn-secondary" id="modal-close-btn" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
       </div>
       <div class="modal-body" id="modal-body-content">
-        <!-- Rendered dynamically by app.js -->
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="modal-cancel-btn">Close Pop-up</button>
-        <button class="btn btn-primary" onclick="submitMedRepEntry()">Proceed & Submit Entry</button>
+        <button class="btn btn-secondary" id="modal-cancel-btn">Close</button>
+        <button class="btn btn-primary" onclick="submitMedRepEntry()">Proceed & Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- READ-ONLY MERGE HISTORY & BEFORE-AFTER SNAPSHOT MODAL (Requirement 2) -->
+  <div class="modal-backdrop" id="snapshot-modal-backdrop">
+    <div class="modal-card" style="max-width:750px;">
+      <div class="modal-header">
+        <h3>👁️ Read-Only Merge History Audit Snapshot</h3>
+        <button class="btn btn-secondary" id="snapshot-modal-close" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
+      </div>
+      <div class="modal-body" id="snapshot-modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeSnapshotModal()">Close Audit Window</button>
       </div>
     </div>
   </div>
 
   <!-- VERIFIED DICTIONARY MODAL DRAWER -->
   <div class="modal-backdrop" id="dict-modal-backdrop">
-    <div class="modal-card" style="max-width:700px;">
+    <div class="modal-card" style="max-width:650px;">
       <div class="modal-header">
         <h3>📖 Verified Master Dictionary Reference</h3>
-        <button class="btn btn-secondary" id="dict-modal-close" style="padding:0.3rem 0.6rem; border:none; background:transparent; font-size:1.2rem;">✕</button>
+        <button class="btn btn-secondary" id="dict-modal-close" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
       </div>
       <div class="modal-body" id="dict-modal-body">
-        <!-- Rendered dynamically by app.js -->
       </div>
     </div>
   </div>

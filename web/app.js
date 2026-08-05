@@ -1,6 +1,7 @@
 /**
  * PIMS_AlgoHCP Client Application Logic
- * Supports Doctor Digital Signature Pad, Immutable True-Only-One Signature Lock, and Canonical Dictionary Commit.
+ * Supports Auto-Dismissing Submission Toasts, Read-Only Merge History Before/After Snapshots,
+ * and Zero-Match Fuzzy Penalty Score Calculation.
  */
 
 const API_BASE = window.location.origin + "/api";
@@ -9,9 +10,9 @@ let currentMatches = [];
 let pendingReviews = [];
 let dictionaryData = [];
 let masterlistData = [];
+let mergeHistoryData = [];
 let autoDetectDebounceTimer = null;
 
-// Signature Canvas State
 let sigCanvas, sigCtx;
 let isDrawing = false;
 let hasSignatureDrawn = false;
@@ -44,6 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("modal-close-btn").addEventListener("click", closeModal);
   document.getElementById("modal-cancel-btn").addEventListener("click", closeModal);
+  
+  document.getElementById("snapshot-modal-close").addEventListener("click", closeSnapshotModal);
   document.getElementById("dict-modal-close").addEventListener("click", () => {
     document.getElementById("dict-modal-backdrop").classList.remove("active");
   });
@@ -57,24 +60,20 @@ function initSignaturePad() {
   if (!sigCanvas) return;
   sigCtx = sigCanvas.getContext("2d");
 
-  // Canvas drawing styles
   sigCtx.strokeStyle = "#38BDF8";
   sigCtx.lineWidth = 2.5;
   sigCtx.lineCap = "round";
   sigCtx.lineJoin = "round";
 
-  // Mouse listeners
   sigCanvas.addEventListener("mousedown", startDrawing);
   sigCanvas.addEventListener("mousemove", draw);
   sigCanvas.addEventListener("mouseup", stopDrawing);
   sigCanvas.addEventListener("mouseleave", stopDrawing);
 
-  // Touch listeners (Mobile devices)
   sigCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); startDrawing(getTouchPos(e)); });
   sigCanvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(getTouchPos(e)); });
   sigCanvas.addEventListener("touchend", stopDrawing);
 
-  // Clear & Sample Buttons
   document.getElementById("btn-clear-sig").addEventListener("click", clearSignaturePad);
   document.getElementById("btn-sample-sig").addEventListener("click", drawSampleSignature);
 }
@@ -82,10 +81,7 @@ function initSignaturePad() {
 function getTouchPos(e) {
   const rect = sigCanvas.getBoundingClientRect();
   const touch = e.touches[0];
-  return {
-    clientX: touch.clientX,
-    clientY: touch.clientY
-  };
+  return { clientX: touch.clientX, clientY: touch.clientY };
 }
 
 function startDrawing(e) {
@@ -118,9 +114,9 @@ function clearSignaturePad() {
 function drawSampleSignature() {
   clearSignaturePad();
   sigCtx.beginPath();
-  sigCtx.moveTo(40, 60);
-  sigCtx.bezierCurveTo(90, 10, 140, 90, 190, 40);
-  sigCtx.bezierCurveTo(240, 80, 290, 20, 340, 50);
+  sigCtx.moveTo(40, 45);
+  sigCtx.bezierCurveTo(90, 10, 140, 70, 190, 30);
+  sigCtx.bezierCurveTo(240, 60, 290, 15, 340, 40);
   sigCtx.stroke();
   hasSignatureDrawn = true;
   document.getElementById("sig-pad-wrapper").style.borderColor = "var(--primary)";
@@ -152,9 +148,7 @@ function setupTabs() {
 
 function switchTab(tabId) {
   const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-  if (tabBtn) {
-    tabBtn.click();
-  }
+  if (tabBtn) tabBtn.click();
 }
 
 function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
@@ -168,7 +162,6 @@ function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
   document.getElementById("input-doc-email").value = email;
 
   drawSampleSignature();
-
   document.querySelectorAll(".auto-detect-field").forEach(inp => inp.style.borderColor = "");
   triggerAutoDetect();
 }
@@ -186,7 +179,7 @@ async function runAutoDetectScan() {
 
   if (!candidate.name || candidate.name.trim().length < 3) {
     bannerTitle.textContent = "Intelligent Pre-Submission Recognizer Active";
-    bannerDesc.textContent = "Fill out all mandatory doctor fields and signature to scan master records automatically...";
+    bannerDesc.textContent = "Type doctor details to scan master records automatically...";
     bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">Mandatory Validation</span>`;
     return;
   }
@@ -254,7 +247,6 @@ function validateMandatoryInput(candidate) {
     }
   });
 
-  // Check Doctor Digital Signature Canvas
   if (!hasSignatureDrawn || !candidate.signature_png) {
     missing.push("Doctor Digital Signature");
     document.getElementById("sig-pad-wrapper").style.borderColor = "#EF4444";
@@ -291,6 +283,127 @@ function resetFormInput() {
   triggerAutoDetect();
 }
 
+// REQUIREMENT 1: FLOATING AUTO-DISMISSING SUBMISSION TOAST NOTIFICATION
+function showSubmissionToast(submittedData, actionTaken, message) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast-card";
+  toast.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+      <strong style="color:var(--primary); font-size:0.85rem; text-transform:uppercase;">🚀 Submission Processed</strong>
+      <span style="font-size:0.75rem; color:var(--text-muted);">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);">${submittedData.name}</div>
+    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem;">
+      ${submittedData.specialty} | ${submittedData.hospital} | ${submittedData.city}
+    </div>
+    <div style="font-size:0.78rem; color:var(--success); background:rgba(16,185,129,0.1); padding:0.3rem 0.5rem; border-radius:4px;">
+      <strong>Action:</strong> ${actionTaken}
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto-dismiss / hide automatically after 4.5 seconds
+  setTimeout(() => {
+    toast.classList.add("hide");
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 4500);
+}
+
+// REQUIREMENT 2: READ-ONLY MERGE HISTORY SNAPSHOT INSPECTION MODAL
+async function openMergeSnapshotModal(reviewId) {
+  const backdrop = document.getElementById("snapshot-modal-backdrop");
+  const content = document.getElementById("snapshot-modal-body");
+
+  try {
+    const res = await fetch(`${API_BASE}/merge-history`);
+    const data = await res.json();
+    if (data.status === "success") {
+      const historyItem = data.history.find(h => h.review_id === reviewId) || data.history[data.history.length - 1];
+
+      if (!historyItem || !historyItem.merge_snapshot) {
+        content.innerHTML = `<p style="color:var(--text-muted)">No snapshot data found for this record.</p>`;
+        backdrop.classList.add("active");
+        return;
+      }
+
+      const snap = historyItem.merge_snapshot;
+      const cand = snap.candidate_submitted || {};
+      const before = snap.master_before || {};
+      const after = snap.master_after || {};
+
+      content.innerHTML = `
+        <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#EF4444; font-weight:700; font-size:0.82rem;">🔒 READ-ONLY AUDIT VIEW (CANNOT BE EDITED)</span>
+          <span style="font-size:0.78rem; color:var(--text-muted)">Resolved by: ${snap.resolved_by || 'Manager'} on ${snap.resolved_at || ''}</span>
+        </div>
+
+        <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
+          Before & After Merge Data Comparison
+        </h4>
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem;">
+          
+          <!-- Box 1: Submitted Candidate Record -->
+          <div class="comp-box">
+            <h4 style="color:var(--primary); font-size:0.82rem; margin-bottom:0.5rem;">1. Submitted Candidate (Before)</h4>
+            <div class="field-pair"><div class="label">Name</div><div class="val">${cand.name || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Hospital</div><div class="val">${cand.hospital || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Secondary</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">City</div><div class="val">${cand.city || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Signature</div>
+              <div class="val">
+                ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:30px; background:#020617; padding:2px; border-radius:4px;">` : 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Box 2: Master Record (Before Merge) -->
+          <div class="comp-box">
+            <h4 style="color:#F59E0B; font-size:0.82rem; margin-bottom:0.5rem;">2. Master Record (Before)</h4>
+            <div class="field-pair"><div class="label">Master ID</div><div class="val">${before.id || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Name</div><div class="val">${before.name || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Specialty</div><div class="val">${before.specialty || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Hospital</div><div class="val">${before.hospital || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">City</div><div class="val">${before.city || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Status</div><div class="val">${before.status || 'VERIFIED'}</div></div>
+          </div>
+
+          <!-- Box 3: Final Master Record (After Merge) -->
+          <div class="comp-box highlight">
+            <h4 style="color:#10B981; font-size:0.82rem; margin-bottom:0.5rem;">3. Unified Master Profile (After Merge)</h4>
+            <div class="field-pair"><div class="label">HCP ID</div><div class="val" style="color:#10B981">${after.id || before.id || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Canonical Name</div><div class="val" style="color:#10B981">${after.canonical_name || cand.name || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Specialty</div><div class="val">${after.specialty || cand.specialty || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Hospital</div><div class="val">${after.hospital || cand.hospital || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#10B981">🔒 VERIFIED_LOCKED</div></div>
+            <div class="field-pair"><div class="label">True-Only-One Sig</div>
+              <div class="val">
+                ${(after.signature_png || cand.signature_png) ? `<img src="${after.signature_png || cand.signature_png}" style="height:30px; background:#020617; padding:2px; border-radius:4px; border:1px solid #10B981;">` : '🔒 Verified Signature Hash'}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      backdrop.classList.add("active");
+    }
+  } catch (e) {
+    console.error("Snapshot error:", e);
+  }
+}
+
+function closeSnapshotModal() {
+  document.getElementById("snapshot-modal-backdrop").classList.remove("active");
+}
+
 async function loadMasterlist() {
   try {
     const res = await fetch(`${API_BASE}/masterlist`);
@@ -315,10 +428,6 @@ function renderMasterlist(records) {
       statusBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>`;
     }
 
-    const sigHtml = r.signature_png 
-      ? `<img src="${r.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 True-Only-One Signature</small>`
-      : `<span style="color:var(--text-dim); font-size:0.75rem;">Verified Canonical Hash</span>`;
-
     return `
       <tr>
         <td><strong>${r.id}</strong><br>${statusBadge}</td>
@@ -326,7 +435,11 @@ function renderMasterlist(records) {
         <td><span class="badge" style="background:rgba(14, 165, 233, 0.15); color:var(--primary);">${r.specialty}</span></td>
         <td>${r.hospital}</td>
         <td>${r.city}, ${r.province || ''}</td>
-        <td>${sigHtml}</td>
+        <td>
+          <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.6rem;" onclick="openMergeSnapshotModal('REV-101')">
+            👁️ View Merge Audit (Read-Only)
+          </button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -350,12 +463,12 @@ function renderDictionary(records) {
   if (!tbody) return;
   tbody.innerHTML = records.map(d => {
     const sigHtml = d.signature_png 
-      ? `<img src="${d.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 Immutable Signature</small>`
-      : `<span style="color:#10B981; font-size:0.8rem;">🔒 Verified Canonical Signature Hash Locked</span>`;
+      ? `<img src="${d.signature_png}" style="height:30px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981;">🔒 Immutable Signature</small>`
+      : `<span style="color:#10B981; font-size:0.78rem;">🔒 Verified Signature Hash</span>`;
 
     return `
       <tr>
-        <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED CANONICAL</span><br><strong>${d.id}</strong></td>
+        <td><span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">100% VERIFIED</span><br><strong>${d.id}</strong></td>
         <td><strong>${d.name}</strong><br><small style="color:var(--text-muted)">${d.full_canonical_name}</small></td>
         <td><strong>${d.specialty}</strong></td>
         <td><strong>Primary:</strong> ${d.primary_hospital}<br><small style="color:var(--text-muted)">Secondary: ${d.secondary_hospital}</small></td>
@@ -386,9 +499,9 @@ function renderReviews(reviews) {
 
   if (reviews.length === 0) {
     container.innerHTML = `
-      <div class="card" style="text-align:center; padding:3rem;">
-        <h3 style="color:var(--text-muted)">No Pending Managerial Reviews</h3>
-        <p style="color:var(--text-dim); margin-top:0.5rem;">All submissions and new doctor verification requests have been processed.</p>
+      <div class="card" style="text-align:center; padding:2.5rem;">
+        <h3 style="color:var(--text-muted); font-size:1rem;">No Pending Managerial Reviews</h3>
+        <p style="color:var(--text-dim); margin-top:0.3rem; font-size:0.85rem;">All submissions and new doctor verification requests have been processed.</p>
       </div>
     `;
     return;
@@ -401,26 +514,23 @@ function renderReviews(reviews) {
     const isNewDoctorVerification = rev.review_type === "NEW_DOCTOR_VERIFICATION";
     
     return `
-      <div class="card" style="margin-bottom:1.5rem; border:1px solid ${top ? top.badge_color : 'var(--border-color)'}">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.75rem;">
+      <div class="card" style="margin-bottom:1.25rem; border:1px solid ${top ? top.badge_color : 'var(--border-color)'}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
           <div>
-            <span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B; margin-right:0.5rem;">${rev.review_id}</span>
+            <span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B; margin-right:0.4rem;">${rev.review_id}</span>
             <span class="badge" style="background:rgba(14, 165, 233, 0.2); color:var(--primary);">${rev.current_stage}</span>
-            ${isNewDoctorVerification ? `<span class="badge" style="background:rgba(139,92,246,0.2); color:#8B5CF6; margin-left:0.5rem;">NEW DOCTOR VERIFICATION</span>` : ''}
+            ${isNewDoctorVerification ? `<span class="badge" style="background:rgba(139,92,246,0.2); color:#8B5CF6; margin-left:0.4rem;">NEW DOCTOR VERIFICATION</span>` : ''}
           </div>
           <div style="text-align:right">
-            <span style="font-size:1.4rem; font-weight:800; color:${top ? top.badge_color : '#FFF'}">${rev.confidence_pct}% Match</span>
-            <div style="font-size:0.75rem; color:var(--text-dim)">Submitted: ${rev.submission_date} by ${rev.medrep_name}</div>
+            <span style="font-size:1.25rem; font-weight:800; color:${top ? top.badge_color : '#FFF'}">${rev.confidence_pct}% Match</span>
+            <div style="font-size:0.72rem; color:var(--text-dim)">Submitted: ${rev.submission_date} by ${rev.medrep_name}</div>
           </div>
         </div>
 
-        <div style="margin-bottom:1rem;">
-          <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
-            ${isNewDoctorVerification ? 'New Doctor Details & Digital Signature' : 'Multi-Field Comparison Matrix'}
-          </h4>
+        <div style="margin-bottom:0.75rem;">
           <div class="comparison-container">
             <div class="comp-box">
-              <h4>Submitted Doctor Info (MedRep Entry)</h4>
+              <h4 style="color:var(--primary); font-size:0.82rem; margin-bottom:0.4rem;">Submitted Entry (MedRep)</h4>
               <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:#0EA5E9">${cand.name}</div></div>
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${cand.hospital}</div></div>
@@ -428,50 +538,49 @@ function renderReviews(reviews) {
               <div class="field-pair"><div class="label">City / Location</div><div class="val">${cand.city}</div></div>
               <div class="field-pair"><div class="label">Digital Signature</div>
                 <div class="val">
-                  ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:40px; background:#020617; padding:2px 8px; border-radius:4px; border:1px solid #38BDF8;">` : 'Captured'}
+                  ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px;">` : 'Captured'}
                 </div>
               </div>
             </div>
 
             <div class="comp-box highlight">
-              <h4>${isNewDoctorVerification ? 'Pending Master Profile' : 'Candidate Masterlist Record (' + (mast.id || 'N/A') + ')'}</h4>
+              <h4 style="color:#10B981; font-size:0.82rem; margin-bottom:0.4rem;">${isNewDoctorVerification ? 'Pending Master Profile' : 'Candidate Master Record (' + (mast.id || 'N/A') + ')'}</h4>
               <div class="field-pair"><div class="label">Master ID</div><div class="val" style="color:#10B981">${mast.id || 'N/A'}</div></div>
               <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#10B981">${mast.name || cand.name}</div></div>
               <div class="field-pair"><div class="label">Specialty</div><div class="val">${mast.specialty || cand.specialty}</div></div>
               <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${mast.hospital || cand.hospital}</div></div>
               <div class="field-pair"><div class="label">City</div><div class="val">${mast.city || cand.city}</div></div>
-              <div class="field-pair"><div class="label">Signature Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Manager Lock' : 'Verified'}</div></div>
+              <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Manager Lock' : 'Verified'}</div></div>
             </div>
           </div>
         </div>
 
-        <div style="background:rgba(15, 23, 42, 0.8); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1rem; font-size:0.82rem;">
-          <strong>Escalation & Verification Audit Log:</strong>
-          <ul style="margin-left:1.2rem; margin-top:0.3rem; color:var(--text-muted)">
-            ${rev.escalation_history.map(h => `<li><strong>[${h.timestamp}] ${h.actor}:</strong> ${h.note}</li>`).join("")}
-          </ul>
-        </div>
-
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <button class="btn btn-secondary" onclick="openDictionaryModal('${cand.name}')">
-            📖 Consult Verified Dictionary (100% Correct Baseline)
-          </button>
           <div style="display:flex; gap:0.5rem">
+            <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="openDictionaryModal('${cand.name}')">
+              📖 Consult Dictionary
+            </button>
+            <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="openMergeSnapshotModal('${rev.review_id}')">
+              👁️ View Merge Snapshot (Read-Only)
+            </button>
+          </div>
+
+          <div style="display:flex; gap:0.4rem">
             ${rev.assigned_level < 2 ? `
-              <button class="btn btn-warning" onclick="escalateReview('${rev.review_id}')">
-                ⬆️ Pass to Higher Position (Escalate)
+              <button class="btn btn-warning" style="font-size:0.78rem;" onclick="escalateReview('${rev.review_id}')">
+                ⬆️ Pass to Higher Position
               </button>
             ` : ''}
             
             ${isNewDoctorVerification ? `
-              <button class="btn btn-success" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
+              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
                 🔒 Verify & Lock Signature (Commit to 100% Dictionary)
               </button>
             ` : `
-              <button class="btn btn-secondary" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
-                ❌ Keep Separate Records
+              <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
+                ❌ Keep Separate
               </button>
-              <button class="btn btn-success" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
+              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
                 ✅ Approve & Merge HCP Profile
               </button>
             `}
@@ -512,22 +621,22 @@ function openRecognizerModal(candidate, matches) {
   const modalBody = document.getElementById("modal-body-content");
 
   modalBody.innerHTML = `
-    <div style="background:rgba(14, 165, 233, 0.1); border:1px solid var(--border-glow); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.25rem;">
-      <h4 style="color:var(--primary); font-size:0.9rem; text-transform:uppercase; margin-bottom:0.25rem;">Submitted Candidate Input</h4>
-      <div style="font-size:1.1rem; font-weight:700;">${candidate.name}</div>
-      <div style="font-size:0.85rem; color:var(--text-muted);">${candidate.specialty} | ${candidate.hospital} | ${candidate.city}</div>
+    <div style="background:rgba(14, 165, 233, 0.1); border:1px solid var(--border-glow); padding:0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem;">
+      <h4 style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; margin-bottom:0.2rem;">Submitted Candidate Input</h4>
+      <div style="font-size:1rem; font-weight:700;">${candidate.name}</div>
+      <div style="font-size:0.8rem; color:var(--text-muted);">${candidate.specialty} | ${candidate.hospital} | ${candidate.city}</div>
     </div>
 
-    <h4 style="font-size:0.95rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.75rem;">
+    <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.6rem;">
       Algorithm Recognizer Matches (${matches.length} Master Candidates Found)
     </h4>
 
     ${matches.map(m => `
-      <div class="match-candidate-item">
-        <div class="candidate-top">
+      <div style="background:rgba(2, 6, 23, 0.6); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.8rem; margin-bottom:0.75rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
           <div>
-            <span class="candidate-name">${m.master_record.name}</span>
-            <small style="margin-left:0.5rem; color:var(--text-dim)">ID: ${m.master_id}</small>
+            <strong style="font-size:0.95rem; color:var(--text-main);">${m.master_record.name}</strong>
+            <small style="margin-left:0.4rem; color:var(--text-dim)">ID: ${m.master_id}</small>
           </div>
           <div>
             <span class="badge" style="background:${m.badge_color}22; color:${m.badge_color}; border:1px solid ${m.badge_color}">
@@ -536,26 +645,24 @@ function openRecognizerModal(candidate, matches) {
           </div>
         </div>
 
-        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">
           <strong>Hospital:</strong> ${m.master_record.hospital} | <strong>Specialty:</strong> ${m.master_record.specialty} | <strong>City:</strong> ${m.master_record.city}
         </div>
 
-        <div style="background:rgba(0,0,0,0.3); padding:0.8rem; border-radius:var(--radius-sm); font-size:0.78rem;">
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.5rem; margin-bottom:0.5rem;">
+        <!-- Requirement 3: Zero Match Penalty Status Display -->
+        <div style="background:rgba(0,0,0,0.3); padding:0.6rem; border-radius:4px; font-size:0.75rem;">
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.4rem; margin-bottom:0.4rem;">
             <div>Name Match: <strong>${m.breakdown.name.score}%</strong> (${m.breakdown.name.status})</div>
             <div>Specialty: <strong>${m.breakdown.specialty.score}%</strong> (${m.breakdown.specialty.status})</div>
             <div>Hospital: <strong>${m.breakdown.hospital.score}%</strong> (${m.breakdown.hospital.status})</div>
             <div>City: <strong>${m.breakdown.city.score}%</strong> (${m.breakdown.city.status})</div>
             <div>Contact: <strong>${m.breakdown.contact.score}%</strong> (${m.breakdown.contact.status})</div>
           </div>
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" style="width:${m.confidence_pct}%; background:${m.badge_color}"></div>
-          </div>
         </div>
 
-        <div style="margin-top:0.75rem; text-align:right;">
-          <button class="btn btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;" onclick="linkCandidateToExisting('${m.master_id}')">
-            🔗 Select & Link to This HCP Profile
+        <div style="margin-top:0.6rem; text-align:right;">
+          <button class="btn btn-secondary" style="font-size:0.78rem; padding:0.3rem 0.7rem;" onclick="linkCandidateToExisting('${m.master_id}')">
+            🔗 Select & Link to Profile
           </button>
         </div>
       </div>
@@ -579,7 +686,7 @@ async function linkCandidateToExisting(masterId) {
     });
     const data = await res.json();
     if (data.status === "success") {
-      alert(`Success!\n\n${data.message}`);
+      showSubmissionToast(candidate, "LINKED_TO_EXISTING_RECORD", data.message);
       closeModal();
       resetFormInput();
       loadMasterlist();
@@ -606,7 +713,9 @@ async function submitMedRepEntry() {
     });
     const data = await res.json();
     if (data.status === "success") {
-      alert(`Submission Processed!\n\nAction Taken: ${data.action_taken}\n${data.message}`);
+      // REQUIREMENT 1: Show auto-dismissing toast notification
+      showSubmissionToast(candidate, data.action_taken, data.message);
+
       closeModal();
       resetFormInput();
       
@@ -685,22 +794,22 @@ function openDictionaryModal(doctorNameQuery) {
   const displayList = matches.length > 0 ? matches : dictionaryData;
 
   content.innerHTML = `
-    <p style="color:var(--text-muted); margin-bottom:1rem;">
-      Viewing 100% Verified Canonical Reference Entries (Dictionary baseline data):
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.75rem;">
+      Viewing 100% Verified Canonical Reference Entries:
     </p>
     ${displayList.map(d => `
-      <div style="background:rgba(15,23,42,0.8); border:1px solid var(--success); border-radius:var(--radius-md); padding:1rem; margin-bottom:1rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-          <strong style="color:var(--text-main); font-size:1.1rem;">${d.name}</strong>
+      <div style="background:rgba(15,23,42,0.8); border:1px solid var(--success); border-radius:var(--radius-sm); padding:0.8rem; margin-bottom:0.75rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+          <strong style="color:var(--text-main); font-size:1rem;">${d.name}</strong>
           <span class="badge" style="background:rgba(16,185,129,0.2); color:#10B981;">100% ACCURATE</span>
         </div>
-        <div style="font-size:0.85rem; color:var(--text-muted);">
+        <div style="font-size:0.8rem; color:var(--text-muted);">
           <div><strong>Canonical:</strong> ${d.full_canonical_name}</div>
           <div><strong>Specialty:</strong> ${d.specialty}</div>
           <div><strong>Primary Hospital:</strong> ${d.primary_hospital}</div>
           <div><strong>Secondary Clinic:</strong> ${d.secondary_hospital}</div>
           <div><strong>Official Phone:</strong> ${d.official_contact}</div>
-          <div style="color:var(--primary); margin-top:0.4rem;"><em>${d.dictionary_notes}</em></div>
+          <div style="color:var(--primary); margin-top:0.3rem;"><em>${d.dictionary_notes}</em></div>
         </div>
       </div>
     `).join("")}
@@ -745,14 +854,14 @@ async function runWorkbenchTest() {
       }
 
       document.getElementById("wb-results-container").innerHTML = `
-        <div style="background:rgba(15, 23, 42, 0.8); padding:1.5rem; border-radius:var(--radius-md); border:1px solid ${r.badge_color}">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3>Calculated Confidence: <span style="color:${r.badge_color}">${r.confidence_pct}%</span></h3>
+        <div style="background:rgba(15, 23, 42, 0.8); padding:1.25rem; border-radius:var(--radius-md); border:1px solid ${r.badge_color}">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <h3 style="font-size:1.1rem;">Calculated Confidence: <span style="color:${r.badge_color}">${r.confidence_pct}%</span></h3>
             <span class="badge" style="background:${r.badge_color}22; color:${r.badge_color}">${r.tier}</span>
           </div>
-          <p style="margin-bottom:1rem; color:var(--text-muted)"><strong>Recommended Action:</strong> ${r.action}</p>
+          <p style="margin-bottom:0.75rem; font-size:0.85rem; color:var(--text-muted)"><strong>Recommended Action:</strong> ${r.action}</p>
 
-          <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Multi-Field Score Component Breakdown</h4>
+          <h4 style="font-size:0.8rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.4rem;">Multi-Field Score Component Breakdown</h4>
           <table class="custom-table">
             <thead>
               <tr><th>System Field</th><th>Normalized Weight</th><th>Similarity Score & Status</th></tr>
