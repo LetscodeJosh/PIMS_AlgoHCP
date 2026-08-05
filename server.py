@@ -273,8 +273,8 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 def run_server():
     os.makedirs(WEB_DIR, exist_ok=True)
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), AlgoHCPRequestHandler) as httpd:
-        print(f"PIMS_AlgoHCP Standalone Protected Microservice running on http://localhost:{PORT}")
+    with socketserver.TCPServer(("0.0.0.0", PORT), AlgoHCPRequestHandler) as httpd:
+        print(f"PIMS_AlgoHCP Standalone Protected Microservice running on http://0.0.0.0:{PORT}")
         httpd.serve_forever()
 
 if __name__ == "__main__":
