@@ -223,47 +223,79 @@
     <section id="tab-workbench" class="tab-content">
       <div class="section-header">
         <h2 class="section-title">Algorithm Component Inspector</h2>
-        <p class="section-desc">Calculate mathematical scores and zero-match penalties between any 2 doctor records.</p>
+        <p class="section-desc">Calculate mathematical scores, zero-match name penalties, and field breakdowns across all 8 mandatory fields.</p>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <h4>Record A (Candidate Input)</h4>
-          <div class="form-group" style="margin-top:0.5rem;">
-            <label>Name</label>
-            <input type="text" id="wb-name1" class="form-control" value="Dr. Santa Maria Cruz">
+          <h4 style="color:var(--primary-light); margin-bottom:0.6rem;">Record A (Candidate Input)</h4>
+          <div class="form-group">
+            <label>1. Doctor Full Name</label>
+            <input type="text" id="wb-name1" class="form-control" value="Joshua Tan">
           </div>
           <div class="form-group">
-            <label>Specialty</label>
+            <label>2. Specialty</label>
             <input type="text" id="wb-spec1" class="form-control" value="Cardiology">
           </div>
           <div class="form-group">
-            <label>Hospital</label>
+            <label>3. Primary Hospital</label>
             <input type="text" id="wb-hosp1" class="form-control" value="St. Lukes Hospital BGC">
           </div>
           <div class="form-group">
-            <label>City</label>
+            <label>4. Secondary Hospital / Clinic</label>
+            <input type="text" id="wb-sec-hosp1" class="form-control" value="Makati Med Annex">
+          </div>
+          <div class="form-group">
+            <label>5. Street Address</label>
+            <input type="text" id="wb-addr1" class="form-control" value="32nd St, BGC">
+          </div>
+          <div class="form-group">
+            <label>6. City / Municipality</label>
             <input type="text" id="wb-city1" class="form-control" value="Taguig City">
+          </div>
+          <div class="form-group">
+            <label>7. Contact Number</label>
+            <input type="text" id="wb-contact1" class="form-control" value="09171234567">
+          </div>
+          <div class="form-group">
+            <label>8. Email Address</label>
+            <input type="text" id="wb-email1" class="form-control" value="joshua.tan@stlukes.ph">
           </div>
         </div>
 
         <div class="card">
-          <h4>Record B (Master Record)</h4>
-          <div class="form-group" style="margin-top:0.5rem;">
-            <label>Name</label>
+          <h4 style="color:#10B981; margin-bottom:0.6rem;">Record B (Master Record)</h4>
+          <div class="form-group">
+            <label>1. Doctor Full Name</label>
             <input type="text" id="wb-name2" class="form-control" value="Dr. Santa M. Cruz, M.D.">
           </div>
           <div class="form-group">
-            <label>Specialty</label>
+            <label>2. Specialty</label>
             <input type="text" id="wb-spec2" class="form-control" value="Cardiology">
           </div>
           <div class="form-group">
-            <label>Hospital</label>
+            <label>3. Primary Hospital</label>
             <input type="text" id="wb-hosp2" class="form-control" value="St. Luke's Medical Center - Global City">
           </div>
           <div class="form-group">
-            <label>City</label>
+            <label>4. Secondary Hospital / Clinic</label>
+            <input type="text" id="wb-sec-hosp2" class="form-control" value="St. Lukes Clinic BGC">
+          </div>
+          <div class="form-group">
+            <label>5. Street Address</label>
+            <input type="text" id="wb-addr2" class="form-control" value="32nd St, Bonifacio Global City">
+          </div>
+          <div class="form-group">
+            <label>6. City / Municipality</label>
             <input type="text" id="wb-city2" class="form-control" value="Taguig City">
+          </div>
+          <div class="form-group">
+            <label>7. Contact Number</label>
+            <input type="text" id="wb-contact2" class="form-control" value="09171234567">
+          </div>
+          <div class="form-group">
+            <label>8. Email Address</label>
+            <input type="text" id="wb-email2" class="form-control" value="santa.cruz@stlukes.ph">
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 """
 Multi-Attribute Match Scorer & ML Probabilistic Classifier.
 Calculates confidence score across ALL system fields without mandatory License ID or Birthdate.
-Enforces Strict Zero-Match Penalty Rule (If a field does not match, returns 0.0% fuzzy match score).
+Enforces Strict Zero-Match Name Penalty & Anchoring Logic (If Doctor Names do not match, returns 0.0% name match and caps confidence score in Low Tier < 50%).
 """
 
 import math
@@ -30,7 +30,7 @@ class HCPMatchScorer:
     MEDIUM_THRESHOLD = 0.50    # 50% - 87% Medium (50-50 Match) -> Managerial Escalation
 
     def calculate_name_score(self, name1: str, name2: str) -> dict:
-        """Calculate multi-algorithm name similarity."""
+        """Calculate multi-algorithm name similarity with strict zero-match threshold for distinct names."""
         norm1 = normalize_name(name1)
         norm2 = normalize_name(name2)
 
@@ -53,12 +53,20 @@ class HCPMatchScorer:
             if sx1 == sx2:
                 sx_match = True
 
+        # Token overlap check
+        set1 = set(t1)
+        set2 = set(t2)
+        has_token_overlap = len(set1.intersection(set2)) > 0
+
         base_name_score = (jw_score * 0.55) + (token_score * 0.45)
         if sx_match:
             base_name_score = min(1.0, base_name_score + 0.05)
 
-        # Strict Zero-Match Threshold for Name
-        if base_name_score < 0.40:
+        # Strict Zero-Match Rule for Distinct Doctor Names
+        # If names have no token overlap, no soundex match, and JW score < 0.65, set score strictly to 0.0
+        if not has_token_overlap and not sx_match and jw_score < 0.65:
+            base_name_score = 0.0
+        elif base_name_score < 0.55:
             base_name_score = 0.0
 
         return {
@@ -87,7 +95,6 @@ class HCPMatchScorer:
                 return 1.0
 
         score = jaro_winkler_distance(n1, n2)
-        # Strict Zero-Match Threshold for text fields
         if score < 0.40:
             return 0.0
         return score
@@ -122,7 +129,7 @@ class HCPMatchScorer:
     def score_pair(self, candidate: dict, master_record: dict) -> dict:
         """
         Intelligently evaluate candidate record against a masterlist record across ALL system fields.
-        Enforces Strict Zero-Match Penalty Rule (If a field does not match, returns 0.0% in fuzzy matching).
+        Enforces Strict Zero-Match Name Penalty & Anchoring Logic.
         """
         field_scores = {}
         field_weights = {}
@@ -184,14 +191,12 @@ class HCPMatchScorer:
         normalized_breakdown = {}
 
         for f, score in field_scores.items():
-            # Zero-Match Adjustment: If field is present but score < 0.40, force strictly 0.0
             if score < 0.40:
                 score = 0.0
 
             w = field_weights[f] / total_weight
             raw_weighted += score * w
             
-            # Status classification for each field
             status = "ZERO_MATCH (0%)"
             if score >= 0.95:
                 status = "EXACT_MATCH"
@@ -211,19 +216,27 @@ class HCPMatchScorer:
         # ML Classifier Sigmoid Calibration
         z = 6.5 * (raw_weighted - 0.52)
         prob_ml = 1.0 / (1.0 + math.exp(-z))
-        confidence_pct = round(prob_ml * 100, 1)
+        
+        # DOCTOR NAME ANCHORING RULE:
+        # If Doctor Name returns 0.0% (different doctor names), cap overall match probability in Low Tier (<50%)
+        if field_scores["name"] == 0.0:
+            prob_ml = min(prob_ml, 0.25)
+            confidence_pct = round(prob_ml * 100 * (raw_weighted / 0.60), 1)
+            confidence_pct = min(confidence_pct, 25.0)
+        else:
+            confidence_pct = round(prob_ml * 100, 1)
 
         # Determine Tier and Action according to process flow
-        if prob_ml >= self.HIGH_THRESHOLD:
+        if confidence_pct >= 88.0:
             tier = "High"
             action = "Merge records into single HCP Profile (Auto/Fast-Track)"
             badge_color = "#10B981"
-        elif prob_ml >= self.MEDIUM_THRESHOLD:
+        elif confidence_pct >= 50.0:
             tier = "Medium (50-50 Match)"
             action = "Flag for Managerial Review & Escalation Workflow"
             badge_color = "#F59E0B"
         else:
-            tier = "Low"
+            tier = "Low Match (Create New Profile)"
             action = "Keep records separate (Create New Record)"
             badge_color = "#EF4444"
 

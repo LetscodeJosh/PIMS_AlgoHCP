@@ -829,13 +829,21 @@ async function runWorkbenchTest() {
     name: document.getElementById("wb-name1").value,
     specialty: document.getElementById("wb-spec1").value,
     hospital: document.getElementById("wb-hosp1").value,
-    city: document.getElementById("wb-city1").value
+    secondary_hospital: document.getElementById("wb-sec-hosp1").value,
+    address: document.getElementById("wb-addr1").value,
+    city: document.getElementById("wb-city1").value,
+    contact: document.getElementById("wb-contact1").value,
+    email: document.getElementById("wb-email1").value
   };
   const rec2 = {
     name: document.getElementById("wb-name2").value,
     specialty: document.getElementById("wb-spec2").value,
     hospital: document.getElementById("wb-hosp2").value,
-    city: document.getElementById("wb-city2").value
+    secondary_hospital: document.getElementById("wb-sec-hosp2").value,
+    address: document.getElementById("wb-addr2").value,
+    city: document.getElementById("wb-city2").value,
+    contact: document.getElementById("wb-contact2").value,
+    email: document.getElementById("wb-email2").value
   };
 
   try {
