@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PIMS_AlgoHCP Recognizer - Minimalist Matcher Engine</title>
+  <title>PIMS_AlgoHCP Recognizer Engine v2.0</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563EB">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
 </head>
 <body>
 
@@ -13,7 +18,7 @@
     <div class="brand-container">
       <div class="brand-logo">🩺</div>
       <div class="brand-title">
-        <h1>PIMS_AlgoHCP Recognizer <span style="font-size:0.75rem; background:rgba(37,99,235,0.3); color:var(--primary-light); padding:0.15rem 0.45rem; border-radius:12px; margin-left:0.3rem;">v2.0</span></h1>
+        <h1>PIMS_AlgoHCP Recognizer <span style="font-size:0.75rem; background:rgba(37,99,235,0.3); color:var(--primary-light); padding:0.15rem 0.45rem; border-radius:12px; margin-left:0.3rem;">v2.0 PWA</span></h1>
         <span>Name-First Intelligent Detection & Frequency Counter Engine</span>
       </div>
     </div>
@@ -38,6 +43,9 @@
       </nav>
 
       <div style="display:flex; gap:0.4rem;">
+        <button class="btn btn-primary" style="font-size:0.72rem; padding:0.35rem 0.65rem; display:none;" id="btn-install-pwa" title="Install PIMS Recognizer as Desktop/Laptop App">
+          📲 Install App
+        </button>
         <button class="btn btn-secondary" style="font-size:0.72rem; padding:0.35rem 0.65rem;" id="btn-reset-clean-slate" title="Clear all data to simulate real-world day-1 entry">
           🧹 Clean Slate
         </button>

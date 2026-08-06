@@ -14,8 +14,36 @@ let mergeHistoryData = [];
 let autoDetectDebounceTimer = null;
 
 let sigCanvas, sigCtx;
-let isDrawing = false;
-let hasSignatureDrawn = false;
+let deferredPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('[PWA] ServiceWorker registered scope:', reg.scope);
+    }).catch(err => {
+      console.log('[PWA] ServiceWorker registration failed:', err);
+    });
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const installBtn = document.getElementById('btn-install-pwa');
+  if (installBtn) {
+    installBtn.style.display = 'inline-flex';
+    installBtn.addEventListener('click', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('[PWA] User installed PIMS Recognizer app');
+        }
+        deferredPrompt = null;
+      });
+    });
+  }
+});
 
 // Initialize App
 document.addEventListener("DOMContentLoaded", () => {
