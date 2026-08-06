@@ -93,12 +93,15 @@
           </div>
 
           <!-- ERP Wizard Step Tabs Header -->
-          <div class="erp-wizard-nav" style="display:flex; gap:0.4rem; margin-bottom:1.25rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.5rem;">
+          <div class="erp-wizard-nav" style="display:flex; gap:0.4rem; margin-bottom:1.25rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.5rem; align-items:center;">
             <button class="erp-step-btn active" data-step="1">Step 1</button>
-            <button class="erp-step-btn" data-step="2">Step 2</button>
-            <button class="erp-step-btn" data-step="3">Step 3</button>
-            <button class="erp-step-btn" data-step="others">Others</button>
-            <button class="erp-step-btn" data-step="changes">Changes</button>
+            <button class="erp-step-btn erp-gated-step" data-step="2" style="display:none;">Step 2</button>
+            <button class="erp-step-btn erp-gated-step" data-step="3" style="display:none;">Step 3</button>
+            <button class="erp-step-btn erp-gated-step" data-step="others" style="display:none;">Others</button>
+            <button class="erp-step-btn erp-gated-step" data-step="changes" style="display:none;">Changes</button>
+            <span id="erp-step-lock-msg" style="font-size:0.75rem; color:#F59E0B; margin-left:auto; display:flex; align-items:center; gap:0.3rem;">
+              🔒 Check Consent & Sign Signature to Unlock Steps
+            </span>
           </div>
 
           <!-- STEP 1: PRIVACY NOTICE AND CONSENT -->

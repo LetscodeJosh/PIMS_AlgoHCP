@@ -150,7 +150,10 @@ function draw(e) {
 }
 
 function stopDrawing() {
-  isDrawing = false;
+  if (isDrawing) {
+    isDrawing = false;
+    checkAndToggleErpSteps();
+  }
 }
 
 function clearSignaturePad() {
@@ -158,6 +161,7 @@ function clearSignaturePad() {
   sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
   hasSignatureDrawn = false;
   document.getElementById("sig-pad-wrapper").style.borderColor = "var(--border-color)";
+  checkAndToggleErpSteps();
 }
 
 function drawSampleSignature() {
@@ -339,13 +343,47 @@ function setupErpWizard() {
     });
   }
 
+  const consentChk = document.getElementById("chk-erp-consent");
+  if (consentChk) {
+    consentChk.addEventListener("change", checkAndToggleErpSteps);
+  }
+
   // Update date field
   const dateInput = document.getElementById("input-erp-sub-date");
   if (dateInput) {
     const now = new Date();
     dateInput.value = now.toISOString().slice(0, 10) + " " + now.toTimeString().slice(0, 8);
   }
+
+  checkAndToggleErpSteps();
 }
+
+function checkAndToggleErpSteps() {
+  const check = isStep1Valid();
+  const gatedButtons = document.querySelectorAll(".erp-gated-step");
+  const lockMsg = document.getElementById("erp-step-lock-msg");
+
+  if (check.isValid) {
+    gatedButtons.forEach(btn => {
+      btn.style.display = "inline-flex";
+    });
+    if (lockMsg) {
+      lockMsg.innerHTML = `<span style="color:#10B981; font-weight:600;">🔓 Step 1 Accomplished! Remaining Steps Unlocked</span>`;
+    }
+  } else {
+    gatedButtons.forEach(btn => {
+      btn.style.display = "none";
+    });
+    if (lockMsg) {
+      lockMsg.innerHTML = `<span style="color:#F59E0B;">🔒 Check Consent & Sign Signature to Unlock Steps</span>`;
+    }
+    const activeBtn = document.querySelector(".erp-step-btn.active");
+    if (activeBtn && activeBtn.getAttribute("data-step") !== "1") {
+      switchErpStep("1");
+    }
+  }
+}
+window.checkAndToggleErpSteps = checkAndToggleErpSteps;
 
 function isStep1Valid() {
   const consent = document.getElementById("chk-erp-consent");
