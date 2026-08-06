@@ -174,6 +174,33 @@
           <!-- STEP 2: DOCTOR'S INFORMATION, BASIC INFO, SPECIALIZATION, WORKPLACES -->
           <div id="erp-step-2" class="erp-step-content">
             
+            <!-- 5 MERGE WORKFLOW TEST PRESETS BAR -->
+            <div style="background:rgba(37,99,235,0.12); border:1px solid rgba(37,99,235,0.3); padding:0.8rem; border-radius:var(--radius-sm); margin-bottom:1.25rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+                <span style="font-weight:700; font-size:0.85rem; color:var(--primary-light); display:flex; align-items:center; gap:0.4rem;">
+                  🧪 5 Merge Algorithm Test Presets (1-Click Test Runs)
+                </span>
+                <span style="font-size:0.72rem; color:var(--text-muted)">Click any preset to test additive merging & auto-detect!</span>
+              </div>
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" style="font-size:0.73rem; padding:0.3rem 0.6rem; border-color:rgba(16,185,129,0.4);" onclick="runTestPreset(1)">
+                  🏥 Test 1: Add 2nd Workplace (Dr. Joshua Tan)
+                </button>
+                <button type="button" class="btn btn-secondary" style="font-size:0.73rem; padding:0.3rem 0.6rem; border-color:rgba(14,165,233,0.4);" onclick="runTestPreset(2)">
+                  🩺 Test 2: Add 2nd Specialty (Dra. Maria Clara)
+                </button>
+                <button type="button" class="btn btn-secondary" style="font-size:0.73rem; padding:0.3rem 0.6rem; border-color:rgba(245,158,11,0.4);" onclick="runTestPreset(3)">
+                  📞 Test 3: Add New Contact/Email (Dr. Antonio Santos)
+                </button>
+                <button type="button" class="btn btn-secondary" style="font-size:0.73rem; padding:0.3rem 0.6rem; border-color:rgba(239,68,68,0.4);" onclick="runTestPreset(4)">
+                  ♻️ Test 4: Exact Duplicate (Dr. Santo Tomas)
+                </button>
+                <button type="button" class="btn btn-secondary" style="font-size:0.73rem; padding:0.3rem 0.6rem; border-color:rgba(168,85,247,0.4);" onclick="runTestPreset(5)">
+                  🆕 Test 5: New Doctor Verification (Dr. Andres Bonifacio)
+                </button>
+              </div>
+            </div>
+
             <div class="erp-section-title">Doctor's Information</div>
             <div class="form-group">
               <label style="font-size:0.8rem;">HCP Search <span style="color:#EF4444">*</span> (Search doctor by typing surname, firstname, or both)</label>

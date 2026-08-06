@@ -310,20 +310,72 @@ function switchTab(tabId) {
   if (tabBtn) tabBtn.click();
 }
 
-function loadPreset(name, spec, hosp, secHosp, addr, city, contact, email) {
-  document.getElementById("input-doc-name").value = name;
-  document.getElementById("input-doc-spec").value = spec;
-  document.getElementById("input-doc-hosp").value = hosp;
-  document.getElementById("input-doc-sec-hosp").value = secHosp;
-  document.getElementById("input-doc-address").value = addr;
-  document.getElementById("input-doc-city").value = city;
-  document.getElementById("input-doc-contact").value = contact;
-  document.getElementById("input-doc-email").value = email;
-
+function runTestPreset(num) {
+  // Ensure consent is checked and sample signature is drawn
+  const consent = document.getElementById("chk-erp-consent");
+  if (consent) consent.checked = true;
   drawSampleSignature();
-  document.querySelectorAll(".auto-detect-field").forEach(inp => inp.style.borderColor = "");
+
+  // Clear existing rows
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (specTbody) specTbody.innerHTML = "";
+  if (workTbody) workTbody.innerHTML = "";
+
+  if (num === 1) {
+    // Test 1: Dr. Joshua Tan - Add 2nd Workplace (Makati Med Annex)
+    document.getElementById("input-doc-name").value = "Dr. Joshua Mariano Tan, M.D.";
+    document.getElementById("input-doc-fn").value = "Joshua";
+    document.getElementById("input-doc-mn").value = "Mariano";
+    document.getElementById("input-doc-ln").value = "Tan";
+    addSpecializationRow("Cardiology", "Interventional Cardiology", "Consultant", "Prescribing");
+    addWorkplaceRow("St. Luke's Medical Center - Global City", "St. Luke's QC Annex", "Taguig City", "Metro Manila", "32nd St, BGC", "09171234567", "dr.joshua.tan@stlukes.com.ph");
+    addWorkplaceRow("Makati Medical Center Annex", "Makati Med Clinic", "Makati City", "Metro Manila", "Amorsolo St", "09179998877", "joshua.tan.md@gmail.com");
+    showSubmissionToast({ name: "Dr. Joshua Tan", specialty: "Cardiology", hospital: "St. Lukes + Makati Med Annex", city: "Taguig & Makati" }, "TEST_PRESET", "Loaded Test 1: Merging 2nd Workplace (Makati Med Annex) to HCP-1001.");
+  } else if (num === 2) {
+    // Test 2: Dra. Maria Clara De La Cruz - Add 2nd Specialty (Gynecologic Oncology)
+    document.getElementById("input-doc-name").value = "Dra. Maria Clara De La Cruz";
+    document.getElementById("input-doc-fn").value = "Maria";
+    document.getElementById("input-doc-mn").value = "Clara";
+    document.getElementById("input-doc-ln").value = "Dela Cruz";
+    addSpecializationRow("Obstetrics & Gynecology", "Maternal & Fetal Medicine", "Consultant", "Prescribing");
+    addSpecializationRow("Gynecologic Oncology", "Oncologic Surgery", "Consultant", "Prescribing");
+    addWorkplaceRow("Philippine General Hospital", "Makati Medical Center Annex", "Manila", "Metro Manila", "Taft Avenue, Ermita", "09189876543", "dra.claradelacruz@pgh.gov.ph");
+    showSubmissionToast({ name: "Dra. Maria Clara", specialty: "OB-GYN + Gynecologic Oncology", hospital: "PGH Manila", city: "Manila" }, "TEST_PRESET", "Loaded Test 2: Merging 2nd Specialty (Gynecologic Oncology) to HCP-1002.");
+  } else if (num === 3) {
+    // Test 3: Dr. Antonio Jose Santos Jr. - Add New Mobile Contact & Email Handle
+    document.getElementById("input-doc-name").value = "Dr. Antonio Jose Santos Jr.";
+    document.getElementById("input-doc-fn").value = "Antonio";
+    document.getElementById("input-doc-mn").value = "Jose";
+    document.getElementById("input-doc-ln").value = "Santos";
+    addSpecializationRow("Pediatrics", "Pediatric Cardiology", "Consultant", "Both");
+    addWorkplaceRow("The Medical City - Pasig", "TMC Ortigas Clinic", "Pasig City", "Metro Manila", "Ortigas Avenue", "09178887766", "antonio.santos.md@gmail.com");
+    showSubmissionToast({ name: "Dr. Antonio Santos", specialty: "Pediatrics", hospital: "The Medical City", city: "Pasig City" }, "TEST_PRESET", "Loaded Test 3: Merging New Contact (09178887766) & Email handle to HCP-1003.");
+  } else if (num === 4) {
+    // Test 4: Dr. Santo Tomas Reyes - Exact Duplicate (No New Attributes)
+    document.getElementById("input-doc-name").value = "Dr. Santo Tomas Reyes, FPOA";
+    document.getElementById("input-doc-fn").value = "Santo";
+    document.getElementById("input-doc-mn").value = "Tomas";
+    document.getElementById("input-doc-ln").value = "Reyes";
+    addSpecializationRow("Orthopedic Surgery", "Spine Surgery", "Consultant", "Prescribing");
+    addWorkplaceRow("Asian Hospital and Medical Center", "Alabang Medical Clinic", "Muntinlupa City", "Metro Manila", "2205 Civic Drive", "09175554433", "dr.reyes@asianhospital.com");
+    showSubmissionToast({ name: "Dr. Santo Tomas Reyes", specialty: "Orthopedic Surgery", hospital: "Asian Hospital", city: "Muntinlupa" }, "TEST_PRESET", "Loaded Test 4: Testing Exact Duplicate Encoding (No new attributes).");
+  } else if (num === 5) {
+    // Test 5: Dr. Andres Bonifacio - Brand New Doctor Profile Creation
+    document.getElementById("input-doc-name").value = "Dr. Andres Castro Bonifacio, M.D.";
+    document.getElementById("input-doc-fn").value = "Andres";
+    document.getElementById("input-doc-mn").value = "Castro";
+    document.getElementById("input-doc-ln").value = "Bonifacio";
+    addSpecializationRow("Neurosurgery", "Cerebrovascular Surgery", "Consultant", "Prescribing");
+    addWorkplaceRow("St. Luke's Medical Center - BGC", "Bonifacio Neuro Clinic", "Taguig City", "Metro Manila", "32nd St, BGC", "09191239876", "dr.bonifacio@stlukes.ph");
+    showSubmissionToast({ name: "Dr. Andres Bonifacio", specialty: "Neurosurgery", hospital: "St. Lukes BGC", city: "Taguig City" }, "TEST_PRESET", "Loaded Test 5: Brand New Doctor Candidate (Queue for Verification & Lock).");
+  }
+
+  switchErpStep("2");
+  checkAndToggleErpSteps();
   triggerAutoDetect();
 }
+window.runTestPreset = runTestPreset;
 
 function triggerAutoDetect() {
   clearTimeout(autoDetectDebounceTimer);
