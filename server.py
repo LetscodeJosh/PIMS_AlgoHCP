@@ -339,6 +339,12 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         if action == "MERGE_RECORD":
                             m["has_merge_history"] = True
                             m["encoded_count"] = m.get("encoded_count", 1) + 1
+                        
+                        # Merge all new/missing attributes into master profile
+                        for k in ["birth_date", "sub_specialty", "hcp_type", "practice", "secondary_hospital", "address", "province", "contact", "email", "account_program", "territory_code"]:
+                            if cand.get(k) and not m.get(k):
+                                m[k] = cand.get(k)
+                                
                         if cand.get("signature_png"):
                             m["signature_png"] = cand.get("signature_png")
                         m["verified_by"] = actor

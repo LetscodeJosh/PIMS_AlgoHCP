@@ -962,29 +962,57 @@ function renderReviews(reviews) {
         </div>
 
         <div style="margin-bottom:0.75rem;">
-          <div class="comparison-container">
-            <div class="comp-box">
-              <h4 style="color:var(--primary-light); font-size:0.82rem; margin-bottom:0.4rem;">Submitted Entry (MedRep)</h4>
-              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:var(--primary-light)">${cand.name}</div></div>
-              <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty}</div></div>
-              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${cand.hospital}</div></div>
+          <div class="comparison-container" style="grid-template-columns: 1fr 1fr; gap:1rem;">
+            <!-- Submitted Entry (MedRep) Column -->
+            <div class="comp-box" style="background:rgba(15,23,42,0.6); padding:1rem; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.1);">
+              <h4 style="color:var(--primary-light); font-size:0.85rem; margin-bottom:0.6rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.3rem;">
+                📋 Submitted Entry (MedRep Complete 4-Step Record)
+              </h4>
+              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:var(--primary-light); font-weight:700;">${cand.name || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Structured Names</div><div class="val">First: ${cand.first_name || 'N/A'} | Mid: ${cand.middle_name || 'N/A'} | Last: ${cand.last_name || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Birth Date</div><div class="val">${cand.birth_date || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Specialty & Sub-Specialty</div><div class="val">${cand.specialty || 'N/A'} ${cand.sub_specialty ? '(' + cand.sub_specialty + ')' : ''}</div></div>
+              <div class="field-pair"><div class="label">Type & Practice</div><div class="val">${cand.hcp_type || 'Physician'} - ${cand.practice || 'Private'}</div></div>
+              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val" style="font-weight:600;">${cand.hospital || 'N/A'}</div></div>
               <div class="field-pair"><div class="label">Secondary Clinic</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">City / Location</div><div class="val">${cand.city}</div></div>
-              <div class="field-pair"><div class="label">Digital Signature</div>
+              <div class="field-pair"><div class="label">Street Address</div><div class="val">${cand.address || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">City & Province</div><div class="val">${cand.city || 'N/A'}, ${cand.province || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Contact Number</div><div class="val">${cand.contact || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Email Address</div><div class="val">${cand.email || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Account & Territory</div><div class="val">${cand.account_program || 'N/A'} | ${cand.territory_code || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">MedRep Submitter</div><div class="val">${cand.medrep_name || 'MedRep'} (${cand.medrep_email || 'N/A'})</div></div>
+              <div class="field-pair"><div class="label">Consent Checkbox</div><div class="val">${cand.consent_given ? '<span style="color:#10B981">✓ Confirmed Given</span>' : '<span style="color:#EF4444">❌ Missing</span>'}</div></div>
+              <div class="field-pair" style="margin-top:0.4rem;"><div class="label">Digital Signature</div>
                 <div class="val">
-                  ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:35px; background:#020617; padding:2px 6px; border-radius:4px;">` : 'Captured'}
+                  ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:38px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid var(--primary);">` : '<span style="color:#EF4444">Not Signed</span>'}
                 </div>
               </div>
             </div>
 
-            <div class="comp-box highlight">
-              <h4 style="color:#10B981; font-size:0.82rem; margin-bottom:0.4rem;">${isNewDoctorVerification ? 'Pending Master Profile' : 'Candidate Master Record (' + (mast.id || 'N/A') + ')'}</h4>
-              <div class="field-pair"><div class="label">Master ID</div><div class="val" style="color:#10B981">${mast.id || 'N/A'}</div></div>
-              <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#10B981">${mast.name || cand.name}</div></div>
-              <div class="field-pair"><div class="label">Specialty</div><div class="val">${mast.specialty || cand.specialty}</div></div>
-              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${mast.hospital || cand.hospital}</div></div>
-              <div class="field-pair"><div class="label">City</div><div class="val">${mast.city || cand.city}</div></div>
-              <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Manager Lock' : 'Verified'}</div></div>
+            <!-- Master Profile Column -->
+            <div class="comp-box highlight" style="background:rgba(2,6,23,0.7); padding:1rem; border-radius:var(--radius-sm); border:1px solid rgba(16,185,129,0.3);">
+              <h4 style="color:#10B981; font-size:0.85rem; margin-bottom:0.6rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.3rem;">
+                ${isNewDoctorVerification ? '🛡️ Pending Master Profile (To Commit)' : '📌 Candidate Master Record (' + (mast.id || 'N/A') + ')'}
+              </h4>
+              <div class="field-pair"><div class="label">Master ID</div><div class="val" style="color:#10B981; font-weight:700;">${mast.id || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Doctor Full Name</div><div class="val" style="color:#10B981; font-weight:700;">${mast.name || cand.name}</div></div>
+              <div class="field-pair"><div class="label">Structured Names</div><div class="val">First: ${mast.first_name || cand.first_name || 'N/A'} | Mid: ${mast.middle_name || cand.middle_name || 'N/A'} | Last: ${mast.last_name || cand.last_name || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Birth Date</div><div class="val">${mast.birth_date || cand.birth_date || '<span style="color:#F59E0B">✨ New Info to Auto-Merge</span>'}</div></div>
+              <div class="field-pair"><div class="label">Specialty & Sub-Specialty</div><div class="val">${mast.specialty || cand.specialty} ${mast.sub_specialty || cand.sub_specialty ? '(' + (mast.sub_specialty || cand.sub_specialty) + ')' : ''}</div></div>
+              <div class="field-pair"><div class="label">Type & Practice</div><div class="val">${mast.hcp_type || cand.hcp_type || 'Physician'} - ${mast.practice || cand.practice || 'Private'}</div></div>
+              <div class="field-pair"><div class="label">Primary Hospital</div><div class="val" style="font-weight:600;">${mast.hospital || cand.hospital}</div></div>
+              <div class="field-pair"><div class="label">Secondary Clinic</div><div class="val">${mast.secondary_hospital || cand.secondary_hospital || '<span style="color:#F59E0B">✨ New Info to Auto-Merge</span>'}</div></div>
+              <div class="field-pair"><div class="label">Street Address</div><div class="val">${mast.address || cand.address || '<span style="color:#F59E0B">✨ New Info to Auto-Merge</span>'}</div></div>
+              <div class="field-pair"><div class="label">City & Province</div><div class="val">${mast.city || cand.city}, ${mast.province || cand.province || ''}</div></div>
+              <div class="field-pair"><div class="label">Contact Number</div><div class="val">${mast.contact || cand.contact || '<span style="color:#F59E0B">✨ New Info to Auto-Merge</span>'}</div></div>
+              <div class="field-pair"><div class="label">Email Address</div><div class="val">${mast.email || cand.email || '<span style="color:#F59E0B">✨ New Info to Auto-Merge</span>'}</div></div>
+              <div class="field-pair"><div class="label">Account & Territory</div><div class="val">${mast.account_program || cand.account_program || 'N/A'} | ${mast.territory_code || cand.territory_code || 'N/A'}</div></div>
+              <div class="field-pair"><div class="label">Profile Status</div><div class="val" style="color:#F59E0B">${isNewDoctorVerification ? 'Pending Manager Lock' : (mast.status || 'Verified')}</div></div>
+              <div class="field-pair" style="margin-top:0.4rem;"><div class="label">Canonical Signature Lock</div>
+                <div class="val">
+                  ${mast.signature_png ? `<img src="${mast.signature_png}" style="height:38px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981">🔒 Canonical Signature</small>` : (cand.signature_png ? `<img src="${cand.signature_png}" style="height:38px; background:#020617; padding:2px 6px; border-radius:4px; border:1px solid #F59E0B;"><br><small style="color:#F59E0B">✨ New Signature to Lock</small>` : '<span style="color:#F59E0B">Pending Lock</span>')}
+                </div>
+              </div>
             </div>
           </div>
         </div>
