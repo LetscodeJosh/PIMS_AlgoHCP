@@ -20,8 +20,8 @@ from hcp_matcher.security import SecurityShield
 PORT = 8080
 WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
-# Clean Slate Data Stores (Simulates real-world production day-1 entry)
-masterlist = []
+# Benchmark Master Data Store (5 Pre-Populated Philippine HCP Master Profiles)
+masterlist = [dict(m) for m in SAMPLE_MASTERLIST]
 dictionary_mgr = MasterDictionary([])
 scorer = HCPMatchScorer()
 workflow_mgr = EscalationWorkflowManager()

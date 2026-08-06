@@ -6,99 +6,242 @@ Contains realistic name variations, hospital affiliations, and specialties.
 SAMPLE_MASTERLIST = [
     {
         "id": "HCP-1001",
-        "name": "Dr. Santa M. Cruz, M.D.",
-        "canonical_name": "SANTA MARIA CRUZ",
+        "name": "Dr. Joshua Mariano Tan, M.D., FPCP",
+        "first_name": "Joshua",
+        "middle_name": "Mariano",
+        "last_name": "Tan",
+        "canonical_name": "JOSHUA MARIANO TAN",
         "specialty": "Cardiology",
+        "sub_specialty": "Interventional Cardiology",
+        "hcp_type": "Consultant",
+        "practice": "Prescribing",
         "hospital": "St. Luke's Medical Center - Global City",
+        "secondary_hospital": "St. Luke's Medical Center - Quezon City",
         "address": "32nd St, Bonifacio Global City",
         "city": "Taguig City",
         "province": "Metro Manila",
         "contact": "09171234567",
-        "status": "VERIFIED_ACTIVE"
+        "email": "dr.joshua.tan@stlukes.com.ph",
+        "account_program": "Abbott Cardiology Care",
+        "territory_code": "TERR-NCR-SOUTH-01",
+        "status": "VERIFIED_LOCKED",
+        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+        "has_merge_history": False,
+        "encoded_count": 1,
+        "specializations": [
+            {
+                "specialty": "Cardiology",
+                "sub_specialty": "Interventional Cardiology",
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "workplaces": [
+            {
+                "hospital": "St. Luke's Medical Center - Global City",
+                "secondary_hospital": "St. Luke's Medical Center - Quezon City",
+                "city": "Taguig City",
+                "province": "Metro Manila",
+                "address": "32nd St, Bonifacio Global City",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "contacts": ["09171234567"],
+        "emails": ["dr.joshua.tan@stlukes.com.ph"]
     },
     {
         "id": "HCP-1002",
-        "name": "Dr. Juan Dela Cruz",
-        "canonical_name": "JUAN DE LA CRUZ",
-        "specialty": "Pediatrics",
+        "name": "Dra. Maria Clara De La Cruz, FPOGS",
+        "first_name": "Maria",
+        "middle_name": "Clara",
+        "last_name": "Dela Cruz",
+        "canonical_name": "MARIA CLARA DE LA CRUZ",
+        "specialty": "Obstetrics & Gynecology",
+        "sub_specialty": "Maternal & Fetal Medicine",
+        "hcp_type": "Consultant",
+        "practice": "Prescribing",
         "hospital": "Philippine General Hospital",
+        "secondary_hospital": "Makati Medical Center Annex",
         "address": "Taft Avenue, Ermita",
         "city": "Manila",
         "province": "Metro Manila",
         "contact": "09189876543",
-        "status": "VERIFIED_ACTIVE"
+        "email": "dra.claradelacruz@pgh.gov.ph",
+        "account_program": "Abbott Women's Health",
+        "territory_code": "TERR-NCR-CENTRAL-02",
+        "status": "VERIFIED_LOCKED",
+        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+        "has_merge_history": False,
+        "encoded_count": 1,
+        "specializations": [
+            {
+                "specialty": "Obstetrics & Gynecology",
+                "sub_specialty": "Maternal & Fetal Medicine",
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "workplaces": [
+            {
+                "hospital": "Philippine General Hospital",
+                "secondary_hospital": "Makati Medical Center Annex",
+                "city": "Manila",
+                "province": "Metro Manila",
+                "address": "Taft Avenue, Ermita",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "contacts": ["09189876543"],
+        "emails": ["dra.claradelacruz@pgh.gov.ph"]
     },
     {
         "id": "HCP-1003",
-        "name": "Dra. Maria Victoria Santos, FPCP",
-        "canonical_name": "MARIA VICTORIA SANTOS",
-        "specialty": "Internal Medicine",
-        "hospital": "Makati Medical Center",
-        "address": "Amorsolo St., Legazpi Village",
-        "city": "Makati City",
+        "name": "Dr. Antonio Jose Santos Jr., M.D.",
+        "first_name": "Antonio",
+        "middle_name": "Jose",
+        "last_name": "Santos",
+        "canonical_name": "ANTONIO JOSE SANTOS JUNIOR",
+        "specialty": "Pediatrics",
+        "sub_specialty": "Pediatric Cardiology",
+        "hcp_type": "Consultant",
+        "practice": "Both",
+        "hospital": "The Medical City - Pasig",
+        "secondary_hospital": "TMC Ortigas Clinic",
+        "address": "Ortigas Avenue",
+        "city": "Pasig City",
         "province": "Metro Manila",
         "contact": "09201112233",
-        "status": "VERIFIED_ACTIVE"
+        "email": "dr.antonio.santos@themedcity.com.ph",
+        "account_program": "Abbott Pediatric Care",
+        "territory_code": "TERR-NCR-EAST-03",
+        "status": "VERIFIED_LOCKED",
+        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+        "has_merge_history": False,
+        "encoded_count": 1,
+        "specializations": [
+            {
+                "specialty": "Pediatrics",
+                "sub_specialty": "Pediatric Cardiology",
+                "type": "Consultant",
+                "practice": "Both",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "workplaces": [
+            {
+                "hospital": "The Medical City - Pasig",
+                "secondary_hospital": "TMC Ortigas Clinic",
+                "city": "Pasig City",
+                "province": "Metro Manila",
+                "address": "Ortigas Avenue",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "contacts": ["09201112233"],
+        "emails": ["dr.antonio.santos@themedcity.com.ph"]
     },
     {
         "id": "HCP-1004",
-        "name": "Dr. Sto. Tomas Reyes",
+        "name": "Dr. Santo Tomas Reyes, FPOA",
+        "first_name": "Santo",
+        "middle_name": "Tomas",
+        "last_name": "Reyes",
         "canonical_name": "SANTO TOMAS REYES",
         "specialty": "Orthopedic Surgery",
+        "sub_specialty": "Spine Surgery",
+        "hcp_type": "Consultant",
+        "practice": "Prescribing",
         "hospital": "Asian Hospital and Medical Center",
+        "secondary_hospital": "Alabang Medical Clinic",
         "address": "2205 Civic Drive, Filinvest City",
         "city": "Muntinlupa City",
         "province": "Metro Manila",
         "contact": "09175554433",
-        "status": "VERIFIED_ACTIVE"
+        "email": "dr.reyes@asianhospital.com",
+        "account_program": "Abbott Ortho Line",
+        "territory_code": "TERR-NCR-SOUTH-04",
+        "status": "VERIFIED_LOCKED",
+        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+        "has_merge_history": False,
+        "encoded_count": 1,
+        "specializations": [
+            {
+                "specialty": "Orthopedic Surgery",
+                "sub_specialty": "Spine Surgery",
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "workplaces": [
+            {
+                "hospital": "Asian Hospital and Medical Center",
+                "secondary_hospital": "Alabang Medical Clinic",
+                "city": "Muntinlupa City",
+                "province": "Metro Manila",
+                "address": "2205 Civic Drive, Filinvest City",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "contacts": ["09175554433"],
+        "emails": ["dr.reyes@asianhospital.com"]
     },
     {
         "id": "HCP-1005",
-        "name": "Dr. Jose P. Rizal Jr.",
-        "canonical_name": "JOSE PROTACIO RIZAL JUNIOR",
-        "specialty": "Ophthalmology",
+        "name": "Dra. Santa Isabel Gonzales, FPCP",
+        "first_name": "Santa",
+        "middle_name": "Isabel",
+        "last_name": "Gonzales",
+        "canonical_name": "SANTA ISABEL GONZALES",
+        "specialty": "Internal Medicine",
+        "sub_specialty": "Endocrinology",
+        "hcp_type": "Consultant",
+        "practice": "Prescribing",
         "hospital": "Cardinal Santos Medical Center",
+        "secondary_hospital": "Greenhills Endocrinology Clinic",
         "address": "10 Wilson St, Greenhills",
         "city": "San Juan City",
         "province": "Metro Manila",
         "contact": "09193332211",
-        "status": "VERIFIED_ACTIVE"
-    },
-    {
-        "id": "HCP-1006",
-        "name": "Dr. Antonio De Los Reyes",
-        "canonical_name": "ANTONIO DE LOS REYES",
-        "specialty": "Dermatology",
-        "hospital": "The Medical City - Pasig",
-        "address": "Ortigas Avenue",
-        "city": "Pasig City",
-        "province": "Metro Manila",
-        "contact": "09178889900",
-        "status": "VERIFIED_ACTIVE"
-    },
-    {
-        "id": "HCP-1007",
-        "name": "Dr. Francisco Baltazar Jr.",
-        "canonical_name": "FRANCISCO BALTAZAR JUNIOR",
-        "specialty": "General Surgery",
-        "hospital": "UST Hospital",
-        "address": "España Blvd, Sampaloc",
-        "city": "Manila",
-        "province": "Metro Manila",
-        "contact": "09224445566",
-        "status": "VERIFIED_ACTIVE"
-    },
-    {
-        "id": "HCP-1008",
-        "name": "Dra. Clara De San Jose",
-        "canonical_name": "CLARA DE SAN JOSE",
-        "specialty": "Obstetrics & Gynecology",
-        "hospital": "Chong Hua Hospital",
-        "address": "Fuente Osmeña",
-        "city": "Cebu City",
-        "province": "Cebu",
-        "contact": "09337778899",
-        "status": "VERIFIED_ACTIVE"
+        "email": "isabel.gonzales@csmc.ph",
+        "account_program": "Abbott Diabetes Care",
+        "territory_code": "TERR-NCR-NORTH-05",
+        "status": "VERIFIED_LOCKED",
+        "signature_status": "LOCKED_TRUE_ONLY_ONE",
+        "has_merge_history": False,
+        "encoded_count": 1,
+        "specializations": [
+            {
+                "specialty": "Internal Medicine",
+                "sub_specialty": "Endocrinology",
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "workplaces": [
+            {
+                "hospital": "Cardinal Santos Medical Center",
+                "secondary_hospital": "Greenhills Endocrinology Clinic",
+                "city": "San Juan City",
+                "province": "Metro Manila",
+                "address": "10 Wilson St, Greenhills",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Baseline"
+            }
+        ],
+        "contacts": ["09193332211"],
     }
 ]
 
