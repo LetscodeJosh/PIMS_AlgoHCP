@@ -1,8 +1,7 @@
 """
-PIMS_AlgoHCP Standalone Microservice Server v2.0 - Protected & Unthrottled.
-Version 2.0 Features: Name-First Standalone Intelligent Pre-Detection Engine,
-Component-Level Linkage (Surname, Given, Middle), Encoding Frequency Counter,
-Digital Signature Lock, and Dictionary Auto-Commit.
+PIMS_AlgoHCP Standalone Microservice Server v2.0 - ERP Schema Aligned.
+Supports Step 1 (Privacy/Signature), Step 2 (Doctor & Workplace Info),
+Step 3 (Survey Questionnaire), and Others (Territory & MedRep Details).
 """
 
 import http.server
@@ -71,13 +70,13 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/version":
             self._send_json({
                 "status": "success",
-                "version": "2.0",
-                "engine_name": "PIMS_AlgoHCP Name-First Intelligent Deduplication Engine v2.0",
+                "version": "2.0-ERP",
+                "engine_name": "PIMS_AlgoHCP ERP Matcher Engine v2.0",
                 "features": [
-                    "Name-First Standalone Pre-Detection Engine",
-                    "Component-Level Linkage (Surname, First Name, Middle Name)",
-                    "Encoding Frequency Tracking (How many times encoded)",
-                    "Immutable True-Only-One Signature Lock",
+                    "Step-by-Step PIMS ERP Wizard Alignment",
+                    "Privacy Consent & Signature Lock Verification",
+                    "Component Doctor Name Linkage (First, Middle, Last)",
+                    "Workplace, Specialty & Account/Program Deduplication",
                     "Clean Slate Real-World Simulation Mode"
                 ]
             })
@@ -133,18 +132,29 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             
             sample_cand = {
                 "medrep_name": "MedRep Santos",
+                "medrep_email": "medrep.santos@pims.com",
+                "first_name": "Santa Maria",
+                "middle_name": "Dela",
+                "last_name": "Cruz",
                 "name": "Dr. Santa Maria Cruz",
                 "specialty": "Cardiology",
+                "sub_specialty": "Interventional Cardiology",
+                "hcp_type": "Physician",
+                "practice": "Private",
                 "hospital": "St. Lukes Hospital BGC",
                 "secondary_hospital": "Makati Med Annex",
                 "address": "32nd St, BGC",
                 "city": "Taguig City",
+                "province": "Metro Manila",
                 "contact": "09171234567",
-                "email": "dr.cruz@stlukes.ph"
+                "email": "dr.cruz@stlukes.ph",
+                "account_program": "Abbott Diabetes Care",
+                "territory_code": "NCR-TAGUIG-01",
+                "consent_given": True
             }
             matches = [scorer.score_pair(sample_cand, masterlist[0])]
             workflow_mgr.add_to_queue(sample_cand, matches)
-            self._send_json({"status": "success", "message": "Benchmark v2.0 dataset loaded successfully."})
+            self._send_json({"status": "success", "message": "ERP Benchmark dataset loaded successfully."})
 
         elif path == "/api/detect-name":
             name_query = payload.get("name", "")
@@ -163,15 +173,21 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/submit":
             candidate = payload.get("candidate", {})
 
+            # ERP Mandatory Fields Check
             mandatory_keys = [
-                ("name", "Doctor Full Name"),
-                ("specialty", "Specialty"),
-                ("hospital", "Primary Hospital / Institution"),
-                ("secondary_hospital", "Secondary Hospital / Clinic"),
-                ("address", "Street / Barangay Address"),
-                ("city", "City / Municipality"),
-                ("contact", "Contact Number"),
-                ("email", "Email Address")
+                ("first_name", "First Name"),
+                ("last_name", "Last Name"),
+                ("specialty", "Specialty Name"),
+                ("hcp_type", "Type"),
+                ("practice", "Practice"),
+                ("hospital", "Workplace Name"),
+                ("city", "City Name"),
+                ("province", "Province Name"),
+                ("contact", "Mobile/Phone Number"),
+                ("email", "Email Address"),
+                ("account_program", "Account/Program"),
+                ("territory_code", "Territory Code"),
+                ("medrep_email", "Medrep Email Address")
             ]
 
             missing_fields = []
@@ -179,6 +195,9 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 val = candidate.get(k, "")
                 if not val or not str(val).strip():
                     missing_fields.append(label)
+
+            if not candidate.get("consent_given"):
+                missing_fields.append("Privacy Notice & Consent Checkbox")
 
             if not candidate.get("signature_png"):
                 missing_fields.append("Doctor Digital Signature")
@@ -191,6 +210,13 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "missing_fields": missing_fields
                 }, 400)
                 return
+
+            # Construct full name if absent
+            fn = candidate.get("first_name", "").strip()
+            mn = candidate.get("middle_name", "").strip()
+            ln = candidate.get("last_name", "").strip()
+            full_name = f"Dr. {fn} {mn} {ln}".replace("  ", " ").strip()
+            candidate["name"] = full_name
 
             matches = []
             for master_rec in masterlist:
@@ -207,7 +233,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         m["has_merge_history"] = True
                         m["encoded_count"] = m.get("encoded_count", 1) + 1
                         enc_count = m["encoded_count"]
-                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']}). Encoded {enc_count}x in Web App."
+                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']}). Encoded {enc_count}x."
             elif score_pct >= 50.0:
                 review_item = workflow_mgr.add_to_queue(candidate, matches, "MATCH_REVIEW")
                 action_taken = "PENDING_MANAGER_REVIEW"
@@ -216,15 +242,26 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 new_id = f"HCP-{1000 + len(masterlist) + 1}"
                 new_rec = {
                     "id": new_id,
-                    "name": candidate.get("name"),
-                    "canonical_name": candidate.get("name", "").upper(),
+                    "name": full_name,
+                    "first_name": fn,
+                    "middle_name": mn,
+                    "last_name": ln,
+                    "birth_date": candidate.get("birth_date", ""),
+                    "canonical_name": f"{fn} {mn} {ln}".upper(),
                     "specialty": candidate.get("specialty"),
+                    "sub_specialty": candidate.get("sub_specialty", ""),
+                    "hcp_type": candidate.get("hcp_type"),
+                    "practice": candidate.get("practice"),
                     "hospital": candidate.get("hospital"),
                     "secondary_hospital": candidate.get("secondary_hospital", ""),
                     "address": candidate.get("address", ""),
                     "city": candidate.get("city"),
-                    "contact": candidate.get("contact", ""),
-                    "email": candidate.get("email", ""),
+                    "province": candidate.get("province", ""),
+                    "contact": candidate.get("contact"),
+                    "email": candidate.get("email"),
+                    "account_program": candidate.get("account_program"),
+                    "territory_code": candidate.get("territory_code"),
+                    "medrep_email": candidate.get("medrep_email"),
                     "signature_png": candidate.get("signature_png", ""),
                     "signature_status": "PENDING_VERIFICATION",
                     "status": "PENDING_MANAGERIAL_VERIFICATION",
@@ -236,7 +273,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 review_item = workflow_mgr.add_to_queue(candidate, [{"master_id": new_id, "master_record": new_rec, "confidence_pct": score_pct, "tier": "Low Match (New Profile)", "badge_color": "#EF4444"}], "NEW_DOCTOR_VERIFICATION")
                 
                 action_taken = "NEW_DOCTOR_QUEUED_FOR_VERIFICATION"
-                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Position Verification ({review_item['review_id']}) to commit 100% verified data & signature to Canonical Dictionary."
+                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Verification ({review_item['review_id']}) to commit to Master Dictionary."
 
             self._send_json({
                 "status": "success",
@@ -267,7 +304,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json({
                 "status": "success",
                 "action_taken": "LINKED_TO_EXISTING_RECORD",
-                "message": f"Candidate doctor record linked to existing Master Profile ({master_id}). Duplicate prevented! Encoded {target_rec.get('encoded_count', 1)}x.",
+                "message": f"Candidate doctor record linked to existing Master Profile ({master_id}). Duplicate prevented!",
                 "target_record": target_rec
             })
 
@@ -311,19 +348,25 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 new_dict_entry = {
                     "id": dict_id,
                     "full_canonical_name": cand.get("name", "").upper(),
-                    "name": cand.get("name"),
+                    "first_name": cand.get("first_name"),
+                    "middle_name": cand.get("middle_name"),
+                    "last_name": cand.get("last_name"),
                     "specialty": cand.get("specialty"),
+                    "sub_specialty": cand.get("sub_specialty", ""),
+                    "hcp_type": cand.get("hcp_type", ""),
+                    "practice": cand.get("practice", ""),
                     "primary_hospital": cand.get("hospital"),
-                    "secondary_hospital": cand.get("secondary_hospital", "N/A"),
                     "city": cand.get("city"),
-                    "province": "Metro Manila",
+                    "province": cand.get("province", ""),
                     "official_contact": cand.get("contact", ""),
+                    "email": cand.get("email", ""),
+                    "account_program": cand.get("account_program", ""),
                     "signature_png": cand.get("signature_png", ""),
                     "signature_status": "LOCKED_TRUE_ONLY_ONE",
-                    "dictionary_notes": f"100% Verified Canonical Baseline Record & True-Only-One Signature approved by Managerial Position ({actor}) on {datetime.now().strftime('%Y-%m-%d')}. Immutable / Read-only."
+                    "dictionary_notes": f"100% Verified Canonical Baseline Record & True-Only-One Signature approved by Managerial Position ({actor}) on {datetime.now().strftime('%Y-%m-%d')}."
                 }
                 dictionary_mgr.dictionary_db.append(new_dict_entry)
-                notes = f"Verified by Managerial Position ({actor}). Profile & True-Only-One Signature locked as Immutable and committed to Verified Dictionary ({dict_id})."
+                notes = f"Verified by Managerial Position ({actor}). Profile & Signature committed to Verified Dictionary ({dict_id})."
 
             master_after = next((dict(m) for m in masterlist if m["id"] == m_id), {})
 
@@ -353,7 +396,7 @@ def run_server():
     os.makedirs(WEB_DIR, exist_ok=True)
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("0.0.0.0", PORT), AlgoHCPRequestHandler) as httpd:
-        print(f"PIMS_AlgoHCP Standalone Protected Microservice v2.0 running on http://0.0.0.0:{PORT}")
+        print(f"PIMS_AlgoHCP Standalone ERP Protected Microservice v2.0 running on http://0.0.0.0:{PORT}")
         httpd.serve_forever()
 
 if __name__ == "__main__":

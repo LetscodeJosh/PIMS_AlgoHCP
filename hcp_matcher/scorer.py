@@ -1,135 +1,81 @@
 """
-Version 2.0 Multi-Attribute Match Scorer & Name-First Intelligent Pre-Detector.
-Features Standalone Name-First Pre-Detection Engine, Component-Level Linkage (Surname, First Name, Middle Name),
-and Encoding Frequency Tracking across MedRep sessions.
+Version 2.0 Multi-Attribute Match Scorer & Name-First Pre-Detector aligned with PIMS ERP Schema.
+Features Step-by-Step ERP Attribute Evaluation, Component-Level Linkage (Surname, First Name, Middle Name),
+and Encoding Frequency Tracking across MedRep ERP submissions.
 """
 
 import math
 import re
-from .normalizer import parse_name_components, normalize_text, normalize_institution
-from .algorithms import jaro_winkler_distance, levenshtein_ratio, soundex, token_set_ratio
+from .normalizer import parse_erp_doctor_name, normalize_text, normalize_institution
+from .algorithms import jaro_winkler_distance, token_set_ratio
 
 class HCPMatchScorer:
     """
-    Version 2.0 Intelligent Multi-Attribute Matcher and Name-First Pre-Detector Engine.
-    
-    Version 2.0 Key Enhancements:
-    1. Standalone Name-First Pre-Detection Engine: Identifies WHO the doctor is as soon as the user types the name.
-    2. Multi-Signal Component Linkage: Token Sort, Token Set, Partial Ratio, Initials Expansion, Surname/Given breakdown.
-    3. Strict Zero-Match Penalty & Anchoring: Distinct doctor names return 0.0% Name score and drop to Low Tier (<50%).
-    4. Encoding Frequency Tracking: Tracks how many times MedReps submit/encode the exact same doctor profile.
+    Version 2.0 ERP-Aligned Multi-Attribute Matcher and Intelligent Name Detector.
     """
 
     HIGH_THRESHOLD = 0.88      # >= 88% High match (Auto-merge/Fast-track)
     MEDIUM_THRESHOLD = 0.50    # 50% - 87% Medium (50-50 Match) -> Managerial Escalation
 
-    def calculate_name_score(self, name1: str, name2: str) -> dict:
+    def calculate_name_score(self, cand_first: str, cand_mid: str, cand_last: str, mast_name: str) -> dict:
         """
-        Version 2.0 Multi-Signal Name Linkage Classifier.
-        Evaluates Surname, First Name, Middle Name, Initials, and Token Permutations.
+        Multi-signal component linkage for ERP Doctor Name fields.
+        Compares candidate structured components against master records.
         """
-        p1 = parse_name_components(name1)
-        p2 = parse_name_components(name2)
+        # If candidate sends raw name string
+        if not cand_first and not cand_last and cand_mid:
+            cand_first, cand_last = cand_mid, ""
 
-        c1 = p1.canonical
-        c2 = p2.canonical
+        erp_name = parse_erp_doctor_name(cand_first, cand_mid, cand_last)
+        cand_canonical = erp_name.canonical_name or normalize_text(cand_first + " " + cand_last)
 
-        if not c1 or not c2:
-            return {
-                "score": 0.0, "jw": 0.0, "token_set": 0.0, "token_sort": 0.0,
-                "surname_score": 0.0, "first_name_score": 0.0, "middle_name_score": 0.0,
-                "soundex_match": False, "canonical1": "", "canonical2": "", "reason": "Empty name input"
-            }
+        mast_erp = parse_erp_doctor_name("", mast_name, "")
+        mast_canonical = mast_erp.canonical_name or normalize_text(mast_name)
 
-        if c1 == c2:
-            return {
-                "score": 100.0, "jw": 100.0, "token_set": 100.0, "token_sort": 100.0,
-                "surname_score": 100.0, "first_name_score": 100.0, "middle_name_score": 100.0,
-                "soundex_match": True, "canonical1": c1, "canonical2": c2, "reason": "Exact normalized canonical match"
-            }
+        if not cand_canonical or not mast_canonical:
+            return {"score": 0.0, "jw": 0.0, "token_set": 0.0, "reason": "Empty name input"}
 
-        jw_score = jaro_winkler_distance(c1, c2)
-        tok_set = token_set_ratio(c1, c2)
-        
-        # Token sort ratio (handles space/word order shifts)
-        s1_sort = " ".join(sorted(c1.split()))
-        s2_sort = " ".join(sorted(c2.split()))
-        tok_sort = jaro_winkler_distance(s1_sort, s2_sort)
+        if cand_canonical == mast_canonical:
+            return {"score": 1.0, "jw": 1.0, "token_set": 1.0, "reason": "Exact normalized canonical match"}
 
-        # Component level scoring
-        surname_score = jaro_winkler_distance(p1.surname, p2.surname) if (p1.surname and p2.surname) else 0.0
-        first_score = jaro_winkler_distance(p1.first_name, p2.first_name) if (p1.first_name and p2.first_name) else 0.0
-        
-        # Middle name flexible match (100% if one lacks middle name)
-        if not p1.middle_names or not p2.middle_names:
-            middle_score = 1.0
-        else:
-            m1 = " ".join(p1.middle_names)
-            m2 = " ".join(p2.middle_names)
-            middle_score = jaro_winkler_distance(m1, m2)
+        jw_score = jaro_winkler_distance(cand_canonical, mast_canonical)
+        tok_set = token_set_ratio(cand_canonical, mast_canonical)
 
-        # Soundex check for primary surname
-        t1 = p1.tokens
-        t2 = p2.tokens
-        sx_match = False
-        if t1 and t2:
-            sx1 = soundex(t1[-1])
-            sx2 = soundex(t2[-1])
-            if sx1 == sx2:
-                sx_match = True
+        # Surname check if provided
+        surname_score = 0.0
+        if erp_name.last_name:
+            surname_score = jaro_winkler_distance(erp_name.last_name, mast_canonical)
 
-        # Token set overlap
-        set1 = set(t1)
-        set2 = set(t2)
-        overlap = len(set1.intersection(set2)) > 0
+        base_name_score = (jw_score * 0.40) + (tok_set * 0.40) + (surname_score * 0.20)
 
-        # Multi-signal weighted name score
-        base_name_score = (jw_score * 0.35) + (tok_set * 0.35) + (tok_sort * 0.15) + (surname_score * 0.10) + (first_score * 0.05)
-        if sx_match and surname_score >= 0.70:
-            base_name_score = min(1.0, base_name_score + 0.05)
-
-        # Version 2.0 Strict Zero-Match Rule for Distinct Doctor Names
-        # If names have no token overlap, no soundex match, and JW score < 0.65, force 0.0
-        if not overlap and not sx_match and jw_score < 0.65:
+        # Zero-Match penalty rule
+        cand_tokens = set(cand_canonical.split())
+        mast_tokens = set(mast_canonical.split())
+        if not cand_tokens.intersection(mast_tokens) and jw_score < 0.65:
             base_name_score = 0.0
         elif base_name_score < 0.55:
             base_name_score = 0.0
-
-        reason = "Name-First intelligent fuzzy match"
-        if base_name_score >= 0.95:
-            reason = "High canonical name alignment"
-        elif base_name_score == 0.0:
-            reason = "Distinct doctor names (0% Zero Match)"
 
         return {
             "score": round(base_name_score, 4),
             "jw": round(jw_score, 4),
             "token_set": round(tok_set, 4),
-            "token_sort": round(tok_sort, 4),
-            "surname_score": round(surname_score, 4),
-            "first_name_score": round(first_score, 4),
-            "middle_name_score": round(middle_score, 4),
-            "soundex_match": sx_match,
-            "canonical1": c1,
-            "canonical2": c2,
-            "reason": reason
+            "canonical1": cand_canonical,
+            "canonical2": mast_canonical
         }
 
     def detect_name_match(self, candidate_name: str, master_records: list) -> list:
         """
-        Version 2.0 Standalone Name-First Pre-Detection Engine.
-        Executes instant intelligent name detection BEFORE secondary fields are filled out.
-        Identifies WHO the doctor is and retrieves their encoding frequency count.
+        ERP Standalone Name-First Pre-Detection Engine.
+        Executes instant search as user types in HCP Search or Last/First Name box.
         """
         if not candidate_name or len(candidate_name.strip()) < 2:
             return []
 
         results = []
         for master in master_records:
-            name_eval = self.calculate_name_score(candidate_name, master.get("name", ""))
+            name_eval = self.calculate_name_score("", candidate_name, "", master.get("name", ""))
             score_pct = round(name_eval["score"] * 100, 1)
-            
-            # Retrieve encoding frequency count
             encoded_count = master.get("encoded_count", 1)
 
             results.append({
@@ -147,113 +93,94 @@ class HCPMatchScorer:
         results.sort(key=lambda x: x["name_score_pct"], reverse=True)
         return results
 
-    def calculate_text_score(self, val1: str, val2: str) -> float:
-        """Calculate similarity for textual attributes."""
-        if not val1 or not val2:
-            return 0.0
-        n1 = normalize_text(val1)
-        n2 = normalize_text(val2)
-        if n1 == n2:
-            return 1.0
-
-        tokens1 = set(n1.split())
-        tokens2 = set(n2.split())
-        if tokens1 and tokens2:
-            overlap = len(tokens1.intersection(tokens2)) / len(tokens1.union(tokens2))
-            if overlap >= 0.8:
-                return 1.0
-
-        score = jaro_winkler_distance(n1, n2)
-        if score < 0.40:
-            return 0.0
-        return score
-
-    def calculate_contact_score(self, c1: str, c2: str) -> float:
-        """Standardize and compare phone/contact numbers."""
-        if not c1 or not c2:
-            return 0.0
-        d1 = re.sub(r'\D', '', str(c1))
-        d2 = re.sub(r'\D', '', str(c2))
-        if not d1 or not d2:
-            return 0.0
-        if d1 == d2:
-            return 1.0
-        if d1[-7:] == d2[-7:]:
-            return 0.9
-        return 0.0
-
-    def calculate_email_score(self, e1: str, e2: str) -> float:
-        """Standardize and compare email addresses."""
-        if not e1 or not e2:
-            return 0.0
-        clean1 = e1.strip().lower()
-        clean2 = e2.strip().lower()
-        if clean1 == clean2:
-            return 1.0
-        score = jaro_winkler_distance(clean1, clean2)
-        if score < 0.40:
-            return 0.0
-        return score
-
     def score_pair(self, candidate: dict, master_record: dict) -> dict:
         """
-        Version 2.0 Multi-Attribute Match Scorer with Encoding Frequency Tracking.
+        Version 2.0 ERP-Aligned Multi-Attribute Match Scorer.
+        Evaluates First/Middle/Last Name, Specialization, Workplaces, Contacts, Account/Program.
         """
+        cand_fn = candidate.get("first_name", "")
+        cand_mn = candidate.get("middle_name", "")
+        cand_ln = candidate.get("last_name", "")
+        cand_full = candidate.get("name") or f"{cand_fn} {cand_mn} {cand_ln}".strip()
+
         field_scores = {}
         field_weights = {}
 
-        # 1. Doctor Name (Weight ~ 40%)
-        name_res = self.calculate_name_score(candidate.get("name", ""), master_record.get("name", ""))
+        # 1. Doctor Full Name (Weight ~ 36.4%)
+        name_res = self.calculate_name_score(cand_fn, cand_mn, cand_ln, master_record.get("name", cand_full))
         field_scores["name"] = name_res["score"]
-        field_weights["name"] = 0.40
+        field_weights["name"] = 0.364
 
-        # 2. Medical Specialty (Weight ~ 20%)
-        spec_score = self.calculate_text_score(candidate.get("specialty", ""), master_record.get("specialty", ""))
-        field_scores["specialty"] = spec_score
-        field_weights["specialty"] = 0.20
+        # 2. Specialty & Sub-Specialty (Weight ~ 18.2%)
+        cand_spec = candidate.get("specialty") or candidate.get("specialty_name", "")
+        mast_spec = master_record.get("specialty", "")
+        spec_n1 = normalize_text(cand_spec)
+        spec_n2 = normalize_text(mast_spec)
+        if spec_n1 and spec_n2:
+            field_scores["specialty"] = 1.0 if spec_n1 == spec_n2 else jaro_winkler_distance(spec_n1, spec_n2)
+        else:
+            field_scores["specialty"] = 0.0
+        field_weights["specialty"] = 0.182
 
-        # 3. Primary Hospital / Institution (Weight ~ 20%)
-        hosp_cand = normalize_institution(candidate.get("hospital", ""))
-        hosp_mast = normalize_institution(master_record.get("hospital", ""))
-        inst_score = self.calculate_text_score(hosp_cand, hosp_mast)
-        field_scores["hospital"] = inst_score
-        field_weights["hospital"] = 0.20
+        # 3. Primary Hospital / Workplace Name (Weight ~ 18.2%)
+        cand_hosp = candidate.get("hospital") or candidate.get("workplace_name", "")
+        mast_hosp = master_record.get("hospital", "")
+        h1 = normalize_institution(cand_hosp)
+        h2 = normalize_institution(mast_hosp)
+        if h1 and h2:
+            field_scores["hospital"] = 1.0 if h1 == h2 else jaro_winkler_distance(h1, h2)
+        else:
+            field_scores["hospital"] = 0.0
+        field_weights["hospital"] = 0.182
 
-        # 4. Secondary Hospital / Clinic (Weight ~ 5% if provided)
-        sec_cand = candidate.get("secondary_hospital", "")
-        sec_mast = master_record.get("secondary_hospital", "")
-        if sec_cand or sec_mast:
-            sec_score = self.calculate_text_score(normalize_institution(sec_cand), normalize_institution(sec_mast))
-            field_scores["secondary_hospital"] = sec_score
-            field_weights["secondary_hospital"] = 0.05
+        # 4. City / Province Name (Weight ~ 9.1%)
+        cand_city = candidate.get("city") or candidate.get("city_name", "")
+        mast_city = master_record.get("city", "")
+        c1 = normalize_text(cand_city)
+        c2 = normalize_text(mast_city)
+        if c1 and c2:
+            field_scores["city"] = 1.0 if c1 == c2 else jaro_winkler_distance(c1, c2)
+        else:
+            field_scores["city"] = 0.0
+        field_weights["city"] = 0.091
 
-        # 5. Street / Barangay Address (Weight ~ 5% if provided)
-        addr_cand = candidate.get("address", "")
-        addr_mast = master_record.get("address", "")
-        if addr_cand or addr_mast:
-            addr_score = self.calculate_text_score(addr_cand, addr_mast)
-            field_scores["address"] = addr_score
-            field_weights["address"] = 0.05
+        # 5. Secondary Hospital / Clinic (Weight ~ 4.5%)
+        cand_sec = candidate.get("secondary_hospital", "")
+        mast_sec = master_record.get("secondary_hospital", "")
+        if cand_sec or mast_sec:
+            field_scores["secondary_hospital"] = jaro_winkler_distance(normalize_text(cand_sec), normalize_text(mast_sec))
+            field_weights["secondary_hospital"] = 0.045
 
-        # 6. City / Province (Weight ~ 10%)
-        city_score = self.calculate_text_score(candidate.get("city", ""), master_record.get("city", ""))
-        field_scores["city"] = city_score
-        field_weights["city"] = 0.10
+        # 6. Street Address (Weight ~ 4.5%)
+        cand_addr = candidate.get("address", "")
+        mast_addr = master_record.get("address", "")
+        if cand_addr or mast_addr:
+            field_scores["address"] = jaro_winkler_distance(normalize_text(cand_addr), normalize_text(mast_addr))
+            field_weights["address"] = 0.045
 
-        # 7. Contact Phone Number (Weight ~ 5%)
-        phone_score = self.calculate_contact_score(candidate.get("contact", ""), master_record.get("contact", ""))
-        field_scores["contact"] = phone_score
-        field_weights["contact"] = 0.05
+        # 7. Contact / Mobile Phone Number (Weight ~ 4.5%)
+        cand_phone = candidate.get("contact") or candidate.get("mobile_number", "")
+        mast_phone = master_record.get("contact", "")
+        p1 = re.sub(r'\D', '', str(cand_phone))
+        p2 = re.sub(r'\D', '', str(mast_phone))
+        if p1 and p2:
+            field_scores["contact"] = 1.0 if p1 == p2 else (0.9 if p1[-7:] == p2[-7:] else 0.0)
+        else:
+            field_scores["contact"] = 0.0
+        field_weights["contact"] = 0.045
 
-        # 8. Email Address (Weight ~ 5% if provided)
-        email_cand = candidate.get("email", "")
-        email_mast = master_record.get("email", "")
-        if email_cand or email_mast:
-            email_score = self.calculate_email_score(email_cand, email_mast)
-            field_scores["email"] = email_score
-            field_weights["email"] = 0.05
+        # 8. Email Address (Weight ~ 4.5%)
+        cand_email = candidate.get("email") or candidate.get("email_address", "")
+        mast_email = master_record.get("email", "")
+        e1 = str(cand_email).strip().lower()
+        e2 = str(mast_email).strip().lower()
+        if e1 and e2:
+            field_scores["email"] = 1.0 if e1 == e2 else jaro_winkler_distance(e1, e2)
+        else:
+            field_scores["email"] = 0.0
+        field_weights["email"] = 0.045
 
-        # Normalize Weights to 1.0 (100%)
+        # Weight Normalization
         total_weight = sum(field_weights.values())
         raw_weighted = 0.0
         normalized_breakdown = {}
@@ -261,7 +188,6 @@ class HCPMatchScorer:
         for f, score in field_scores.items():
             if score < 0.40:
                 score = 0.0
-
             w = field_weights[f] / total_weight
             raw_weighted += score * w
             
@@ -281,11 +207,11 @@ class HCPMatchScorer:
 
         normalized_breakdown["name"]["details"] = name_res
 
-        # ML Classifier Sigmoid Calibration
+        # ML Calibration Sigmoid
         z = 6.5 * (raw_weighted - 0.52)
         prob_ml = 1.0 / (1.0 + math.exp(-z))
         
-        # Version 2.0 Name Anchoring Rule:
+        # Name Anchoring Penalty
         if field_scores["name"] == 0.0:
             prob_ml = min(prob_ml, 0.25)
             confidence_pct = round(prob_ml * 100 * (raw_weighted / 0.60), 1)
@@ -293,18 +219,17 @@ class HCPMatchScorer:
         else:
             confidence_pct = round(prob_ml * 100, 1)
 
-        # Determine Tier and Action according to process flow
         if confidence_pct >= 88.0:
-            tier = "High"
-            action = "Merge records into single HCP Profile (Auto/Fast-Track)"
+            tier = "High Match (Fast-Track Merge)"
+            action = "Merge records into canonical HCP Profile"
             badge_color = "#10B981"
         elif confidence_pct >= 50.0:
-            tier = "Medium (50-50 Match)"
-            action = "Flag for Managerial Review & Escalation Workflow"
+            tier = "Medium Tier (50-50 Match)"
+            action = "Escalate to Manager Approval Queue"
             badge_color = "#F59E0B"
         else:
-            tier = "Low Match (Create New Profile)"
-            action = "Keep records separate (Create New Record)"
+            tier = "Low Match Tier (<50%)"
+            action = "Create New Doctor Candidate Queue"
             badge_color = "#EF4444"
 
         encoded_count = master_record.get("encoded_count", 1)

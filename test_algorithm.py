@@ -1,9 +1,9 @@
 """
-Unit tests for PIMS_AlgoHCP algorithm core, multi-field intelligence, and workflow.
+Unit tests for PIMS_AlgoHCP ERP algorithm core, multi-field intelligence, and workflow.
 """
 
 import unittest
-from hcp_matcher.normalizer import normalize_name, normalize_text
+from hcp_matcher.normalizer import parse_erp_doctor_name, normalize_name, normalize_text
 from hcp_matcher.algorithms import jaro_winkler_distance, soundex, token_set_ratio
 from hcp_matcher.scorer import HCPMatchScorer
 from hcp_matcher.workflow import EscalationWorkflowManager
@@ -11,19 +11,21 @@ from hcp_matcher.workflow import EscalationWorkflowManager
 class TestAlgoHCP(unittest.TestCase):
 
     def test_normalizer(self):
-        norm1 = normalize_name("Dr. Santa Maria Cruz")
-        norm2 = normalize_name("Dr. St. Maria Cruz")
-        self.assertEqual(norm1["canonical"], "SANTA MARIA CRUZ")
-        self.assertEqual(norm2["canonical"], "SANTA MARIA CRUZ")
+        erp1 = parse_erp_doctor_name("Santa Maria", "", "Cruz")
+        erp2 = parse_erp_doctor_name("St. Maria", "", "Cruz")
+        self.assertEqual(erp1.canonical_name, "SANTA MARIA CRUZ")
+        self.assertEqual(erp2.canonical_name, "SANTA MARIA CRUZ")
 
     def test_name_similarity(self):
         scorer = HCPMatchScorer()
-        res = scorer.calculate_name_score("Dr. Santa Maria Cruz", "Dr. St. Maria Cruz")
+        res = scorer.calculate_name_score("Santa Maria", "", "Cruz", "Dr. St. Maria Cruz")
         self.assertGreater(res["score"], 0.90)
 
     def test_multi_field_intelligent_scoring(self):
         scorer = HCPMatchScorer()
         cand = {
+            "first_name": "Santa Maria",
+            "last_name": "Cruz",
             "name": "Dr. Santa Maria Cruz",
             "specialty": "Cardiology",
             "hospital": "St Lukes Hospital BGC",

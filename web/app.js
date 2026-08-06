@@ -48,6 +48,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // Initialize App
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  setupErpWizard();
   initSignaturePad();
   loadMasterlist();
   loadDictionary();
@@ -287,32 +288,105 @@ async function runAutoDetectScan() {
   }
 }
 
+function setupErpWizard() {
+  document.querySelectorAll(".erp-step-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const step = btn.getAttribute("data-step");
+      switchErpStep(step);
+    });
+  });
+
+  const saveBtn = document.getElementById("btn-save-erp-submission");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", submitMedRepEntry);
+  }
+
+  // Update date field
+  const dateInput = document.getElementById("input-erp-sub-date");
+  if (dateInput) {
+    const now = new Date();
+    dateInput.value = now.toISOString().slice(0, 10) + " " + now.toTimeString().slice(0, 8);
+  }
+}
+
+function switchErpStep(step) {
+  document.querySelectorAll(".erp-step-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".erp-step-content").forEach(c => c.classList.remove("active"));
+
+  const btn = document.querySelector(`.erp-step-btn[data-step="${step}"]`);
+  if (btn) btn.classList.add("active");
+
+  const content = document.getElementById(`erp-step-${step}`);
+  if (content) content.classList.add("active");
+}
+
 function getMedRepInput() {
+  const fn = (document.getElementById("input-doc-fn") ? document.getElementById("input-doc-fn").value.trim() : "");
+  const mn = (document.getElementById("input-doc-mn") ? document.getElementById("input-doc-mn").value.trim() : "");
+  const ln = (document.getElementById("input-doc-ln") ? document.getElementById("input-doc-ln").value.trim() : "");
+  const docName = (document.getElementById("input-doc-name") ? document.getElementById("input-doc-name").value.trim() : "");
+
+  let full = docName;
+  if (!full && (fn || ln)) {
+    full = `Dr. ${fn} ${mn} ${ln}`.replace(/\s+/g, ' ').trim();
+  }
+
   return {
-    medrep_name: document.getElementById("medrep-user-name").value.trim() || "MedRep User",
-    name: document.getElementById("input-doc-name").value.trim(),
-    specialty: document.getElementById("input-doc-spec").value.trim(),
-    hospital: document.getElementById("input-doc-hosp").value.trim(),
-    secondary_hospital: document.getElementById("input-doc-sec-hosp").value.trim(),
-    address: document.getElementById("input-doc-address").value.trim(),
-    city: document.getElementById("input-doc-city").value.trim(),
-    contact: document.getElementById("input-doc-contact").value.trim(),
-    email: document.getElementById("input-doc-email").value.trim(),
+    medrep_name: "MedRep Santos",
+    medrep_email: (document.getElementById("input-erp-medrep-email") ? document.getElementById("input-erp-medrep-email").value.trim() : "medrep.santos@pims.com"),
+    first_name: fn,
+    middle_name: mn,
+    last_name: ln,
+    birth_date: (document.getElementById("input-doc-dob") ? document.getElementById("input-doc-dob").value : "1980-05-15"),
+    name: full,
+    specialty: (document.getElementById("input-doc-spec") ? document.getElementById("input-doc-spec").value.trim() : ""),
+    sub_specialty: (document.getElementById("input-doc-subspec") ? document.getElementById("input-doc-subspec").value.trim() : ""),
+    hcp_type: (document.getElementById("input-doc-type") ? document.getElementById("input-doc-type").value : "Physician"),
+    practice: (document.getElementById("input-doc-practice") ? document.getElementById("input-doc-practice").value : "Private"),
+    hospital: (document.getElementById("input-doc-hosp") ? document.getElementById("input-doc-hosp").value.trim() : ""),
+    secondary_hospital: (document.getElementById("input-doc-sec-hosp") ? document.getElementById("input-doc-sec-hosp").value.trim() : "Makati Med Annex"),
+    address: (document.getElementById("input-doc-address") ? document.getElementById("input-doc-address").value.trim() : "32nd St, BGC"),
+    city: (document.getElementById("input-doc-city") ? document.getElementById("input-doc-city").value.trim() : ""),
+    province: (document.getElementById("input-doc-province") ? document.getElementById("input-doc-province").value.trim() : "Metro Manila"),
+    contact: (document.getElementById("input-doc-contact") ? document.getElementById("input-doc-contact").value.trim() : ""),
+    email: (document.getElementById("input-doc-email") ? document.getElementById("input-doc-email").value.trim() : ""),
+    account_program: (document.getElementById("input-erp-account-program") ? document.getElementById("input-erp-account-program").value : "Abbott Diabetes Care"),
+    territory_code: (document.getElementById("input-erp-territory") ? document.getElementById("input-erp-territory").value.trim() : "TERR-NCR-SOUTH-01"),
+    consent_given: (document.getElementById("chk-erp-consent") ? document.getElementById("chk-erp-consent").checked : true),
     signature_png: getSignatureDataUrl()
   };
+}
+
+function loadErpPreset(fn, mn, ln, spec, hosp, city, prov, contact, email) {
+  if (document.getElementById("input-doc-fn")) document.getElementById("input-doc-fn").value = fn;
+  if (document.getElementById("input-doc-mn")) document.getElementById("input-doc-mn").value = mn;
+  if (document.getElementById("input-doc-ln")) document.getElementById("input-doc-ln").value = ln;
+  if (document.getElementById("input-doc-name")) document.getElementById("input-doc-name").value = `${fn} ${ln}`;
+  if (document.getElementById("input-doc-spec")) document.getElementById("input-doc-spec").value = spec;
+  if (document.getElementById("input-doc-hosp")) document.getElementById("input-doc-hosp").value = hosp;
+  if (document.getElementById("input-doc-city")) document.getElementById("input-doc-city").value = city;
+  if (document.getElementById("input-doc-province")) document.getElementById("input-doc-province").value = prov;
+  if (document.getElementById("input-doc-contact")) document.getElementById("input-doc-contact").value = contact;
+  if (document.getElementById("input-doc-email")) document.getElementById("input-doc-email").value = email;
+
+  drawSampleSignature();
+  switchErpStep('2');
+  triggerAutoDetect();
 }
 
 function validateMandatoryInput(candidate) {
   const missing = [];
   const fieldsToCheck = [
-    { key: "name", id: "input-doc-name", label: "Doctor Full Name" },
-    { key: "specialty", id: "input-doc-spec", label: "Specialty" },
-    { key: "hospital", id: "input-doc-hosp", label: "Primary Hospital / Institution" },
-    { key: "secondary_hospital", id: "input-doc-sec-hosp", label: "Secondary Hospital / Clinic" },
-    { key: "address", id: "input-doc-address", label: "Street / Barangay Address" },
-    { key: "city", id: "input-doc-city", label: "City / Municipality" },
-    { key: "contact", id: "input-doc-contact", label: "Contact Number" },
-    { key: "email", id: "input-doc-email", label: "Email Address" }
+    { key: "first_name", id: "input-doc-fn", label: "First Name" },
+    { key: "last_name", id: "input-doc-ln", label: "Last Name" },
+    { key: "specialty", id: "input-doc-spec", label: "Specialty Name" },
+    { key: "hospital", id: "input-doc-hosp", label: "Workplace Name" },
+    { key: "city", id: "input-doc-city", label: "City Name" },
+    { key: "province", id: "input-doc-province", label: "Province Name" },
+    { key: "contact", id: "input-doc-contact", label: "Mobile/Phone Number" },
+    { key: "email", id: "input-doc-email", label: "Email Address" },
+    { key: "territory_code", id: "input-erp-territory", label: "Territory Code" },
+    { key: "medrep_email", id: "input-erp-medrep-email", label: "Medrep Email Address" }
   ];
 
   fieldsToCheck.forEach(f => {
@@ -325,9 +399,14 @@ function validateMandatoryInput(candidate) {
     }
   });
 
-  if (!hasSignatureDrawn || !candidate.signature_png) {
+  if (!candidate.consent_given) {
+    missing.push("Privacy Notice & Consent Checkbox");
+  }
+
+  if (!candidate.signature_png) {
     missing.push("Doctor Digital Signature");
-    document.getElementById("sig-pad-wrapper").style.borderColor = "#EF4444";
+    const pad = document.getElementById("sig-pad-wrapper");
+    if (pad) pad.style.borderColor = "#EF4444";
   } else {
     document.getElementById("sig-pad-wrapper").style.borderColor = "var(--border-color)";
   }
