@@ -978,55 +978,125 @@ async function openMergeSnapshotModal(targetMasterId) {
       const before = snap.master_before || {};
       const after = snap.master_after || {};
 
+      // Extract collections or build fallbacks
+      const afterSpecs = after.specializations && after.specializations.length > 0
+        ? after.specializations
+        : [{ specialty: after.specialty || cand.specialty || 'N/A', sub_specialty: after.sub_specialty || cand.sub_specialty || '', type: after.hcp_type || cand.hcp_type || 'Consultant', practice: after.practice || cand.practice || 'Prescribing' }];
+
+      const afterWorks = after.workplaces && after.workplaces.length > 0
+        ? after.workplaces
+        : [{ hospital: after.hospital || cand.hospital || 'N/A', secondary_hospital: after.secondary_hospital || cand.secondary_hospital || '', city: after.city || cand.city || '', province: after.province || cand.province || '' }];
+
+      const afterContacts = after.contacts && after.contacts.length > 0 ? after.contacts : [after.contact || cand.contact || 'N/A'];
+      const afterEmails = after.emails && after.emails.length > 0 ? after.emails : [after.email || cand.email || 'N/A'];
+
+      const candSpecs = cand.specializations && cand.specializations.length > 0
+        ? cand.specializations
+        : [{ specialty: cand.specialty || 'N/A', sub_specialty: cand.sub_specialty || '' }];
+
+      const candWorks = cand.workplaces && cand.workplaces.length > 0
+        ? cand.workplaces
+        : [{ hospital: cand.hospital || 'N/A', secondary_hospital: cand.secondary_hospital || '', city: cand.city || '' }];
+
+      const mergeSummaryList = snap.master_after && snap.master_after.last_merge_summary
+        ? snap.master_after.last_merge_summary
+        : ["✨ Unified multi-attribute profile updated & synchronized to Masterlist."];
+
       content.innerHTML = `
-        <div style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
-          <span style="color:#EF4444; font-weight:700; font-size:0.82rem;">🔒 READ-ONLY AUDIT VIEW (CANNOT BE EDITED)</span>
+        <div style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#EF4444; font-weight:700; font-size:0.82rem;">🔒 READ-ONLY MERGE HISTORY AUDIT (INCREMENTAL ADDITIVE PROFILE)</span>
           <span style="font-size:0.78rem; color:var(--text-muted)">Resolved by: ${snap.resolved_by || 'Manager'} on ${snap.resolved_at || ''}</span>
         </div>
 
+        <div style="background:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); padding:0.6rem 0.8rem; border-radius:var(--radius-sm); margin-bottom:1rem; font-size:0.78rem; color:#10B981;">
+          <strong>🎯 Merge Action Taken:</strong> Incremental Profile Merged. New attributes were added without overwriting existing master records.
+          <div style="margin-top:0.3rem; color:var(--text-main);">
+            ${mergeSummaryList.map(item => `<div style="margin-bottom:0.15rem;">• ${item}</div>`).join("")}
+          </div>
+        </div>
+
         <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
-          Before & After Merge Data Comparison Matrix
+          Before & After Incremental Merge Data Comparison Matrix
         </h4>
 
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem;">
           
           <!-- Box 1: Submitted Candidate Record -->
-          <div class="comp-box">
-            <h4 style="color:var(--primary-light); font-size:0.82rem; margin-bottom:0.5rem;">1. Submitted Candidate (Before)</h4>
-            <div class="field-pair"><div class="label">Name</div><div class="val">${cand.name || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Specialty</div><div class="val">${cand.specialty || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Hospital</div><div class="val">${cand.hospital || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Secondary</div><div class="val">${cand.secondary_hospital || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">City</div><div class="val">${cand.city || 'N/A'}</div></div>
+          <div class="comp-box" style="background:rgba(15,23,42,0.6); padding:0.85rem;">
+            <h4 style="color:var(--primary-light); font-size:0.82rem; margin-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.3rem;">1. Submitted Candidate (Before)</h4>
+            <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:var(--primary-light); font-weight:700;">${cand.name || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Submitted Specialties (${candSpecs.length})</div>
+              <div class="val">
+                ${candSpecs.map(s => `<div>• <strong>${s.specialty}</strong> ${s.sub_specialty ? '(' + s.sub_specialty + ')' : ''}</div>`).join("")}
+              </div>
+            </div>
+            <div class="field-pair"><div class="label">Submitted Workplaces (${candWorks.length})</div>
+              <div class="val">
+                ${candWorks.map(w => `<div>• <strong>${w.hospital}</strong> ${w.city ? '(' + w.city + ')' : ''}</div>`).join("")}
+              </div>
+            </div>
+            <div class="field-pair"><div class="label">Contact Number</div><div class="val">${cand.contact || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Email Address</div><div class="val">${cand.email || 'N/A'}</div></div>
             <div class="field-pair"><div class="label">Signature</div>
               <div class="val">
-                ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:30px; background:#020617; padding:2px; border-radius:4px;">` : 'N/A'}
+                ${cand.signature_png ? `<img src="${cand.signature_png}" style="height:32px; background:#020617; padding:2px; border-radius:4px;">` : 'Captured'}
               </div>
             </div>
           </div>
 
           <!-- Box 2: Master Record (Before Merge) -->
-          <div class="comp-box">
-            <h4 style="color:#F59E0B; font-size:0.82rem; margin-bottom:0.5rem;">2. Master Record (Before)</h4>
-            <div class="field-pair"><div class="label">Master ID</div><div class="val">${before.id || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Name</div><div class="val">${before.name || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Specialty</div><div class="val">${before.specialty || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Hospital</div><div class="val">${before.hospital || 'N/A'}</div></div>
+          <div class="comp-box" style="background:rgba(15,23,42,0.6); padding:0.85rem;">
+            <h4 style="color:#F59E0B; font-size:0.82rem; margin-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.3rem;">2. Master Record (Before)</h4>
+            <div class="field-pair"><div class="label">Master ID</div><div class="val" style="color:#F59E0B; font-weight:700;">${before.id || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#F59E0B; font-weight:700;">${before.name || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Primary Specialty</div><div class="val">${before.specialty || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Primary Hospital</div><div class="val">${before.hospital || 'N/A'}</div></div>
             <div class="field-pair"><div class="label">City</div><div class="val">${before.city || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Status</div><div class="val">${before.status || 'VERIFIED'}</div></div>
+            <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#F59E0B">${before.status || 'VERIFIED'}</div></div>
           </div>
 
-          <!-- Box 3: Final Master Record (After Merge) -->
-          <div class="comp-box highlight">
-            <h4 style="color:#10B981; font-size:0.82rem; margin-bottom:0.5rem;">3. Unified Master Profile (After Merge)</h4>
-            <div class="field-pair"><div class="label">HCP ID</div><div class="val" style="color:#10B981">${after.id || before.id || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Canonical Name</div><div class="val" style="color:#10B981">${after.canonical_name || cand.name || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Specialty</div><div class="val">${after.specialty || cand.specialty || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Hospital</div><div class="val">${after.hospital || cand.hospital || 'N/A'}</div></div>
-            <div class="field-pair"><div class="label">Status</div><div class="val" style="color:#10B981">🔒 VERIFIED_LOCKED</div></div>
-            <div class="field-pair"><div class="label">True-Only-One Sig</div>
+          <!-- Box 3: Unified Master Profile (After Merge) -->
+          <div class="comp-box highlight" style="background:rgba(2,6,23,0.85); border:1.5px solid #10B981; padding:0.85rem;">
+            <h4 style="color:#10B981; font-size:0.82rem; margin-bottom:0.5rem; border-bottom:1px solid rgba(16,185,129,0.3); padding-bottom:0.3rem;">3. Unified Master Profile (After Merge)</h4>
+            <div class="field-pair"><div class="label">HCP ID</div><div class="val" style="color:#10B981; font-weight:700;">${after.id || before.id || 'N/A'}</div></div>
+            <div class="field-pair"><div class="label">Doctor Name</div><div class="val" style="color:#10B981; font-weight:700;">${after.name || cand.name || 'N/A'}</div></div>
+            
+            <!-- Unified Specializations List -->
+            <div class="field-pair"><div class="label">Unified Specializations (${afterSpecs.length})</div>
               <div class="val">
-                ${(after.signature_png || cand.signature_png) ? `<img src="${after.signature_png || cand.signature_png}" style="height:30px; background:#020617; padding:2px; border-radius:4px; border:1px solid #10B981;">` : '🔒 Verified Signature Hash'}
+                ${afterSpecs.map(s => `
+                  <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); padding:0.25rem 0.4rem; border-radius:4px; margin-bottom:0.2rem; font-size:0.75rem;">
+                    🩺 <strong>${s.specialty}</strong> ${s.sub_specialty ? '(' + s.sub_specialty + ')' : ''}
+                    <div style="font-size:0.68rem; color:var(--text-dim);">${s.type || 'Consultant'} | ${s.practice || 'Prescribing'}</div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+
+            <!-- Unified Workplaces List -->
+            <div class="field-pair"><div class="label">Unified Workplaces (${afterWorks.length})</div>
+              <div class="val">
+                ${afterWorks.map(w => `
+                  <div style="background:rgba(14,165,233,0.1); border:1px solid rgba(14,165,233,0.2); padding:0.25rem 0.4rem; border-radius:4px; margin-bottom:0.2rem; font-size:0.75rem;">
+                    🏥 <strong>${w.hospital}</strong> ${w.secondary_hospital ? '/ ' + w.secondary_hospital : ''}
+                    <div style="font-size:0.68rem; color:var(--text-dim);">${w.city || ''} ${w.province ? ', ' + w.province : ''}</div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+
+            <!-- Unified Contacts & Emails -->
+            <div class="field-pair"><div class="label">Unified Contacts</div>
+              <div class="val">${afterContacts.join(", ")}</div>
+            </div>
+            <div class="field-pair"><div class="label">Unified Emails</div>
+              <div class="val">${afterEmails.join(", ")}</div>
+            </div>
+
+            <div class="field-pair"><div class="label">Profile Status</div><div class="val" style="color:#10B981; font-weight:700;">🔒 VERIFIED_LOCKED</div></div>
+            <div class="field-pair" style="margin-top:0.3rem;"><div class="label">True-Only-One Sig</div>
+              <div class="val">
+                ${(after.signature_png || cand.signature_png) ? `<img src="${after.signature_png || cand.signature_png}" style="height:32px; background:#020617; padding:2px; border-radius:4px; border:1px solid #10B981;"><br><small style="color:#10B981">🔒 Immutable Signature</small>` : '<span style="color:#10B981">🔒 Signature Locked</span>'}
               </div>
             </div>
           </div>
@@ -1086,6 +1156,13 @@ function renderMasterlist(records) {
     const encCount = r.encoded_count || 1;
     const freqBadge = `<span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B; margin-left:0.3rem;">🔥 Encoded ${encCount}x</span>`;
 
+    // Multi-attribute badges
+    const specs = r.specializations || [{ specialty: r.specialty }];
+    const works = r.workplaces || [{ hospital: r.hospital, city: r.city }];
+
+    const specBadge = specs.length > 1 ? `<span class="badge" style="background:rgba(16,185,129,0.2); color:#10B981; margin-left:0.3rem;">+${specs.length - 1} Specialty</span>` : '';
+    const workBadge = works.length > 1 ? `<span class="badge" style="background:rgba(14,165,233,0.2); color:#38BDF8; margin-left:0.3rem;">+${works.length - 1} Workplace</span>` : '';
+
     const hasMerge = r.has_merge_history === true;
     const mergeBtnHtml = hasMerge ? `
       <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="openMergeSnapshotModal('${r.id}')">
@@ -1096,10 +1173,10 @@ function renderMasterlist(records) {
     return `
       <tr>
         <td><strong>${r.id}</strong> ${freqBadge}<br>${statusBadge}</td>
-        <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name}</small></td>
-        <td><span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${r.specialty}</span></td>
-        <td>${r.hospital}</td>
-        <td>${r.city}, ${r.province || ''}</td>
+        <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name || r.name}</small></td>
+        <td><span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${r.specialty || 'General'}</span> ${specBadge}</td>
+        <td><strong>${r.hospital || 'N/A'}</strong> ${workBadge}</td>
+        <td>${r.city || 'N/A'}, ${r.province || ''}</td>
         <td>${mergeBtnHtml}</td>
       </tr>
     `;

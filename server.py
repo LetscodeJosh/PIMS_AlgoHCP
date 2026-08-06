@@ -27,6 +27,140 @@ scorer = HCPMatchScorer()
 workflow_mgr = EscalationWorkflowManager()
 security_shield = SecurityShield()
 
+def ensure_collections_initialized(m):
+    """Ensure master profile m has collections initialized."""
+    if "specializations" not in m or not isinstance(m.get("specializations"), list):
+        m["specializations"] = []
+        if m.get("specialty"):
+            m["specializations"].append({
+                "specialty": m.get("specialty", ""),
+                "sub_specialty": m.get("sub_specialty", ""),
+                "type": m.get("hcp_type", "Consultant"),
+                "practice": m.get("practice", "Prescribing"),
+                "added_at": m.get("verified_at", "Initial Profiling")
+            })
+
+    if "workplaces" not in m or not isinstance(m.get("workplaces"), list):
+        m["workplaces"] = []
+        if m.get("hospital"):
+            m["workplaces"].append({
+                "hospital": m.get("hospital", ""),
+                "secondary_hospital": m.get("secondary_hospital", ""),
+                "city": m.get("city", ""),
+                "province": m.get("province", ""),
+                "address": m.get("address", ""),
+                "added_at": m.get("verified_at", "Initial Profiling")
+            })
+
+    if "contacts" not in m or not isinstance(m.get("contacts"), list):
+        m["contacts"] = []
+        if m.get("contact"):
+            m["contacts"].append(m.get("contact"))
+
+    if "emails" not in m or not isinstance(m.get("emails"), list):
+        m["emails"] = []
+        if m.get("email"):
+            m["emails"].append(m.get("email"))
+
+def incremental_merge_into_master(master_rec, candidate, resolved_by="System"):
+    """
+    Cleverly merges new candidate data into master profile incrementally.
+    Appends new workplaces, specializations, contact numbers, & emails.
+    Does NOT overwrite existing data. Returns summary of additions made.
+    """
+    ensure_collections_initialized(master_rec)
+    additions = []
+
+    # 1. Merge Specializations
+    cand_specs = candidate.get("specializations", [])
+    if not cand_specs and candidate.get("specialty"):
+        cand_specs = [{
+            "specialty": candidate.get("specialty"),
+            "sub_specialty": candidate.get("sub_specialty", ""),
+            "hcp_type": candidate.get("hcp_type", "Consultant"),
+            "practice": candidate.get("practice", "Prescribing")
+        }]
+
+    for spec_obj in cand_specs:
+        spec_name = (spec_obj.get("specialty") or "").strip()
+        sub_spec = (spec_obj.get("sub_specialty") or "").strip()
+        if not spec_name:
+            continue
+        
+        exists = any(
+            (existing.get("specialty") or "").strip().lower() == spec_name.lower() and
+            (existing.get("sub_specialty") or "").strip().lower() == sub_spec.lower()
+            for existing in master_rec["specializations"]
+        )
+
+        if not exists:
+            new_item = {
+                "specialty": spec_name,
+                "sub_specialty": sub_spec,
+                "type": spec_obj.get("hcp_type") or spec_obj.get("type") or "Consultant",
+                "practice": spec_obj.get("practice") or "Prescribing",
+                "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "added_by": resolved_by
+            }
+            master_rec["specializations"].append(new_item)
+            additions.append(f"✨ Added Specialization: {spec_name} ({sub_spec or 'Primary'})")
+
+    # 2. Merge Workplaces & Locations
+    cand_works = candidate.get("workplaces", [])
+    if not cand_works and candidate.get("hospital"):
+        cand_works = [{
+            "hospital": candidate.get("hospital"),
+            "secondary_hospital": candidate.get("secondary_hospital", ""),
+            "city": candidate.get("city", ""),
+            "province": candidate.get("province", ""),
+            "address": candidate.get("address", "")
+        }]
+
+    for work_obj in cand_works:
+        hosp_name = (work_obj.get("hospital") or "").strip()
+        sec_hosp = (work_obj.get("secondary_hospital") or "").strip()
+        city_name = (work_obj.get("city") or "").strip()
+        if not hosp_name and not city_name:
+            continue
+
+        exists = any(
+            (existing.get("hospital") or "").strip().lower() == hosp_name.lower() and
+            (existing.get("city") or "").strip().lower() == city_name.lower()
+            for existing in master_rec["workplaces"]
+        )
+
+        if not exists:
+            new_work = {
+                "hospital": hosp_name,
+                "secondary_hospital": sec_hosp,
+                "city": city_name,
+                "province": work_obj.get("province", ""),
+                "address": work_obj.get("address", ""),
+                "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "added_by": resolved_by
+            }
+            master_rec["workplaces"].append(new_work)
+            additions.append(f"✨ Added Workplace: {hosp_name} ({city_name})")
+
+    # 3. Merge Contact Numbers
+    cand_contact = (candidate.get("contact") or "").strip()
+    if cand_contact and cand_contact not in master_rec["contacts"]:
+        master_rec["contacts"].append(cand_contact)
+        additions.append(f"✨ Added Contact: {cand_contact}")
+
+    # 4. Merge Emails
+    cand_email = (candidate.get("email") or "").strip()
+    if cand_email and cand_email not in master_rec["emails"]:
+        master_rec["emails"].append(cand_email)
+        additions.append(f"✨ Added Email: {cand_email}")
+
+    # 5. Signature Lock
+    if candidate.get("signature_png") and not master_rec.get("signature_png"):
+        master_rec["signature_png"] = candidate.get("signature_png")
+        additions.append("🔒 Locked True-Only-One Signature")
+
+    return additions
+
 class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=WEB_DIR, **kwargs)
@@ -228,12 +362,15 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             if score_pct >= 88.0:
                 action_taken = "AUTO_MERGED"
+                additions = []
                 for m in masterlist:
                     if m["id"] == top_match["master_id"]:
                         m["has_merge_history"] = True
                         m["encoded_count"] = m.get("encoded_count", 1) + 1
+                        additions = incremental_merge_into_master(m, candidate, "Auto-Merge Engine")
                         enc_count = m["encoded_count"]
-                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']}). Encoded {enc_count}x."
+                addition_str = f" Updates: {', '.join(additions)}" if additions else " (No new fields to append)."
+                msg = f"High Confidence Match ({score_pct}%). Candidate merged into Master Record ({top_match['master_id']}). Encoded {enc_count}x.{addition_str}"
             elif score_pct >= 50.0:
                 review_item = workflow_mgr.add_to_queue(candidate, matches, "MATCH_REVIEW")
                 action_taken = "PENDING_MANAGER_REVIEW"
@@ -332,6 +469,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     master_before = dict(m)
 
             if action == "VERIFY_AND_LOCK_CANONICAL" or action == "MERGE_RECORD":
+                additions = []
                 for m in masterlist:
                     if m["id"] == m_id:
                         m["status"] = "VERIFIED_LOCKED"
@@ -340,13 +478,9 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             m["has_merge_history"] = True
                             m["encoded_count"] = m.get("encoded_count", 1) + 1
                         
-                        # Merge all new/missing attributes into master profile
-                        for k in ["birth_date", "sub_specialty", "hcp_type", "practice", "secondary_hospital", "address", "province", "contact", "email", "account_program", "territory_code"]:
-                            if cand.get(k) and not m.get(k):
-                                m[k] = cand.get(k)
-                                
-                        if cand.get("signature_png"):
-                            m["signature_png"] = cand.get("signature_png")
+                        # Additive Multi-Attribute Incremental Merge
+                        additions = incremental_merge_into_master(m, cand, actor)
+                        m["last_merge_summary"] = additions
                         m["verified_by"] = actor
                         m["verified_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
