@@ -347,7 +347,38 @@ function setupErpWizard() {
   }
 }
 
+function isStep1Valid() {
+  const consent = document.getElementById("chk-erp-consent");
+  const isConsentChecked = consent ? consent.checked : false;
+  const sigUrl = getSignatureDataUrl();
+  const isSigDrawn = hasSignatureDrawn || (sigUrl && sigUrl.length > 0);
+
+  return {
+    isValid: isConsentChecked && isSigDrawn,
+    isConsentChecked,
+    isSigDrawn
+  };
+}
+
 function switchErpStep(step) {
+  if (step !== "1") {
+    const check = isStep1Valid();
+    if (!check.isValid) {
+      const missing = [];
+      if (!check.isConsentChecked) missing.push("Privacy Notice & Consent Checkbox");
+      if (!check.isSigDrawn) missing.push("Doctor Digital Signature");
+
+      const pad = document.getElementById("sig-pad-wrapper");
+      if (pad && !check.isSigDrawn) pad.style.borderColor = "#EF4444";
+
+      showWarningModal(
+        "⚠️ Step 1 Validation Required",
+        `You cannot proceed to Step 2 or other steps! Mandatory items in Step 1 are missing:\n\n• ${missing.join("\n• ")}\n\nPlease check the consent checkbox and draw/affix doctor digital signature first.`
+      );
+      return false;
+    }
+  }
+
   document.querySelectorAll(".erp-step-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".erp-step-content").forEach(c => c.classList.remove("active"));
 
@@ -356,6 +387,7 @@ function switchErpStep(step) {
 
   const content = document.getElementById(`erp-step-${step}`);
   if (content) content.classList.add("active");
+  return true;
 }
 window.switchErpStep = switchErpStep;
 
