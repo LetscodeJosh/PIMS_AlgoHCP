@@ -217,32 +217,26 @@ async function runAutoDetectScan() {
   const bannerDesc = document.getElementById("banner-desc");
   const bannerBadge = document.getElementById("banner-badge");
 
-  if (!candidate.name || candidate.name.trim().length < 2) {
-    bannerTitle.textContent = "Version 2.0 Name-First Intelligent Pre-Detection Engine Active";
-    bannerDesc.textContent = "Start typing a Doctor Name to auto-identify doctor profile & encoding frequency...";
-    bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">v2.0 Active</span>`;
+  if (!candidate.name || candidate.name.trim().length < 3) {
+    bannerTitle.textContent = "Intelligent Pre-Submission Recognizer Active";
+    bannerDesc.textContent = "Type doctor details to scan master records automatically...";
+    bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">Mandatory Validation</span>`;
     return;
   }
 
   try {
-    const nameRes = await fetch(`${API_BASE}/detect-name?name=${encodeURIComponent(candidate.name)}`);
-    const nameData = await nameRes.json();
-    
     const res = await fetch(`${API_BASE}/match`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ candidate })
     });
     const data = await res.json();
-
     if (data.status === "success" && data.matches.length > 0) {
       currentMatches = data.matches;
       const top = currentMatches[0];
-      const nameMatch = (nameData.matches && nameData.matches.length > 0) ? nameData.matches[0] : null;
-      const encCount = top.encoded_count || (nameMatch ? nameMatch.encoded_count : 1);
 
-      bannerTitle.innerHTML = `👤 Name-First Auto-Detection: <strong>${top.confidence_pct}% Match</strong> with <u>${top.master_record.name}</u> <span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B">🔥 Encoded ${encCount}x</span>`;
-      bannerDesc.textContent = `Master ID: ${top.master_id} | ${top.master_record.hospital} | ${top.master_record.specialty} | Name Linkage: ${nameMatch ? nameMatch.name_score_pct : 0}%`;
+      bannerTitle.innerHTML = `⚡ Real-Time Intelligent Detection: <strong>${top.confidence_pct}% Match</strong> with <u>${top.master_record.name}</u>`;
+      bannerDesc.textContent = `Master Profile ID: ${top.master_id} | ${top.master_record.hospital} | ${top.master_record.specialty}`;
 
       bannerBadge.innerHTML = `
         <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
@@ -250,8 +244,8 @@ async function runAutoDetectScan() {
         </span>
       `;
     } else {
-      bannerTitle.textContent = "Version 2.0 Name-First Pre-Detection Active";
-      bannerDesc.textContent = "No master matches found yet. New doctor profile will be queued for Manager Verification.";
+      bannerTitle.textContent = "Intelligent Pre-Submission Recognizer Active";
+      bannerDesc.textContent = "No master matches found yet. New doctor record will be queued for Manager Verification.";
       bannerBadge.innerHTML = `<span class="badge" style="background:rgba(239, 68, 68, 0.2); color:#EF4444">New Doctor Candidate</span>`;
     }
   } catch (e) {
@@ -498,9 +492,7 @@ function renderMasterlist(records) {
       statusBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>`;
     }
 
-    const encCount = r.encoded_count || 1;
-    const freqBadge = `<span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B; margin-left:0.3rem;">🔥 Encoded ${encCount}x</span>`;
-
+    // REQUIREMENT 1: Only render View Merge Audit button IF merge history exists
     const hasMerge = r.has_merge_history === true;
     const mergeBtnHtml = hasMerge ? `
       <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="openMergeSnapshotModal('${r.id}')">
@@ -510,7 +502,7 @@ function renderMasterlist(records) {
 
     return `
       <tr>
-        <td><strong>${r.id}</strong> ${freqBadge}<br>${statusBadge}</td>
+        <td><strong>${r.id}</strong><br>${statusBadge}</td>
         <td><strong>${r.name}</strong><br><small style="color:var(--text-dim)">Canonical: ${r.canonical_name}</small></td>
         <td><span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${r.specialty}</span></td>
         <td>${r.hospital}</td>

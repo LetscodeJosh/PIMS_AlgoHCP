@@ -1,76 +1,51 @@
 """
-Version 2.0 Multi-Attribute Match Scorer & Name-First Intelligent Pre-Detector.
-Features Standalone Name-First Pre-Detection Engine, Component-Level Linkage (Surname, First Name, Middle Name),
-and Encoding Frequency Tracking across MedRep sessions.
+Multi-Attribute Match Scorer & ML Probabilistic Classifier.
+Calculates confidence score across ALL system fields without mandatory License ID or Birthdate.
+Enforces Strict Zero-Match Name Penalty & Anchoring Logic (If Doctor Names do not match, returns 0.0% name match and caps confidence score in Low Tier < 50%).
 """
 
 import math
 import re
-from .normalizer import parse_name_components, normalize_text, normalize_institution
+from .normalizer import normalize_name, normalize_text, normalize_institution
 from .algorithms import jaro_winkler_distance, levenshtein_ratio, soundex, token_set_ratio
 
 class HCPMatchScorer:
     """
-    Version 2.0 Intelligent Multi-Attribute Matcher and Name-First Pre-Detector Engine.
+    Intelligent Multi-Attribute Matcher and Probabilistic Classifier.
+    Evaluates ALL doctor fields dynamically with string standardization and weighted linkage.
     
-    Version 2.0 Key Enhancements:
-    1. Standalone Name-First Pre-Detection Engine: Identifies WHO the doctor is as soon as the user types the name.
-    2. Multi-Signal Component Linkage: Token Sort, Token Set, Partial Ratio, Initials Expansion, Surname/Given breakdown.
-    3. Strict Zero-Match Penalty & Anchoring: Distinct doctor names return 0.0% Name score and drop to Low Tier (<50%).
-    4. Encoding Frequency Tracking: Tracks how many times MedReps submit/encode the exact same doctor profile.
+    Supported Fields:
+    - Doctor Name (Jaro-Winkler + Soundex + Token Set)
+    - Specialty / Subspecialty
+    - Primary Hospital / Institution
+    - Secondary Hospital / Clinic
+    - Street / Barangay Address
+    - City / Municipality / Province
+    - Phone / Mobile Contact
+    - Email Address
     """
 
+    # Tiers
     HIGH_THRESHOLD = 0.88      # >= 88% High match (Auto-merge/Fast-track)
     MEDIUM_THRESHOLD = 0.50    # 50% - 87% Medium (50-50 Match) -> Managerial Escalation
 
     def calculate_name_score(self, name1: str, name2: str) -> dict:
-        """
-        Version 2.0 Multi-Signal Name Linkage Classifier.
-        Evaluates Surname, First Name, Middle Name, Initials, and Token Permutations.
-        """
-        p1 = parse_name_components(name1)
-        p2 = parse_name_components(name2)
+        """Calculate multi-algorithm name similarity with strict zero-match threshold for distinct names."""
+        norm1 = normalize_name(name1)
+        norm2 = normalize_name(name2)
 
-        c1 = p1.canonical
-        c2 = p2.canonical
+        c1 = norm1["canonical"]
+        c2 = norm2["canonical"]
 
         if not c1 or not c2:
-            return {
-                "score": 0.0, "jw": 0.0, "token_set": 0.0, "token_sort": 0.0,
-                "surname_score": 0.0, "first_name_score": 0.0, "middle_name_score": 0.0,
-                "soundex_match": False, "canonical1": "", "canonical2": "", "reason": "Empty name input"
-            }
-
-        if c1 == c2:
-            return {
-                "score": 100.0, "jw": 100.0, "token_set": 100.0, "token_sort": 100.0,
-                "surname_score": 100.0, "first_name_score": 100.0, "middle_name_score": 100.0,
-                "soundex_match": True, "canonical1": c1, "canonical2": c2, "reason": "Exact normalized canonical match"
-            }
+            return {"score": 0.0, "jw": 0.0, "token": 0.0, "soundex_match": False, "canonical1": "", "canonical2": ""}
 
         jw_score = jaro_winkler_distance(c1, c2)
-        tok_set = token_set_ratio(c1, c2)
-        
-        # Token sort ratio (handles space/word order shifts)
-        s1_sort = " ".join(sorted(c1.split()))
-        s2_sort = " ".join(sorted(c2.split()))
-        tok_sort = jaro_winkler_distance(s1_sort, s2_sort)
+        token_score = token_set_ratio(c1, c2)
 
-        # Component level scoring
-        surname_score = jaro_winkler_distance(p1.surname, p2.surname) if (p1.surname and p2.surname) else 0.0
-        first_score = jaro_winkler_distance(p1.first_name, p2.first_name) if (p1.first_name and p2.first_name) else 0.0
-        
-        # Middle name flexible match (100% if one lacks middle name)
-        if not p1.middle_names or not p2.middle_names:
-            middle_score = 1.0
-        else:
-            m1 = " ".join(p1.middle_names)
-            m2 = " ".join(p2.middle_names)
-            middle_score = jaro_winkler_distance(m1, m2)
-
-        # Soundex check for primary surname
-        t1 = p1.tokens
-        t2 = p2.tokens
+        # Soundex check for primary surname token
+        t1 = norm1["tokens"]
+        t2 = norm2["tokens"]
         sx_match = False
         if t1 and t2:
             sx1 = soundex(t1[-1])
@@ -78,74 +53,30 @@ class HCPMatchScorer:
             if sx1 == sx2:
                 sx_match = True
 
-        # Token set overlap
+        # Token overlap check
         set1 = set(t1)
         set2 = set(t2)
-        overlap = len(set1.intersection(set2)) > 0
+        has_token_overlap = len(set1.intersection(set2)) > 0
 
-        # Multi-signal weighted name score
-        base_name_score = (jw_score * 0.35) + (tok_set * 0.35) + (tok_sort * 0.15) + (surname_score * 0.10) + (first_score * 0.05)
-        if sx_match and surname_score >= 0.70:
+        base_name_score = (jw_score * 0.55) + (token_score * 0.45)
+        if sx_match:
             base_name_score = min(1.0, base_name_score + 0.05)
 
-        # Version 2.0 Strict Zero-Match Rule for Distinct Doctor Names
-        # If names have no token overlap, no soundex match, and JW score < 0.65, force 0.0
-        if not overlap and not sx_match and jw_score < 0.65:
+        # Strict Zero-Match Rule for Distinct Doctor Names
+        # If names have no token overlap, no soundex match, and JW score < 0.65, set score strictly to 0.0
+        if not has_token_overlap and not sx_match and jw_score < 0.65:
             base_name_score = 0.0
         elif base_name_score < 0.55:
             base_name_score = 0.0
 
-        reason = "Name-First intelligent fuzzy match"
-        if base_name_score >= 0.95:
-            reason = "High canonical name alignment"
-        elif base_name_score == 0.0:
-            reason = "Distinct doctor names (0% Zero Match)"
-
         return {
             "score": round(base_name_score, 4),
             "jw": round(jw_score, 4),
-            "token_set": round(tok_set, 4),
-            "token_sort": round(tok_sort, 4),
-            "surname_score": round(surname_score, 4),
-            "first_name_score": round(first_score, 4),
-            "middle_name_score": round(middle_score, 4),
+            "token": round(token_score, 4),
             "soundex_match": sx_match,
             "canonical1": c1,
-            "canonical2": c2,
-            "reason": reason
+            "canonical2": c2
         }
-
-    def detect_name_match(self, candidate_name: str, master_records: list) -> list:
-        """
-        Version 2.0 Standalone Name-First Pre-Detection Engine.
-        Executes instant intelligent name detection BEFORE secondary fields are filled out.
-        Identifies WHO the doctor is and retrieves their encoding frequency count.
-        """
-        if not candidate_name or len(candidate_name.strip()) < 2:
-            return []
-
-        results = []
-        for master in master_records:
-            name_eval = self.calculate_name_score(candidate_name, master.get("name", ""))
-            score_pct = round(name_eval["score"] * 100, 1)
-            
-            # Retrieve encoding frequency count
-            encoded_count = master.get("encoded_count", 1)
-
-            results.append({
-                "master_id": master.get("id"),
-                "master_name": master.get("name"),
-                "canonical_name": master.get("canonical_name"),
-                "specialty": master.get("specialty"),
-                "hospital": master.get("hospital"),
-                "city": master.get("city"),
-                "name_score_pct": score_pct,
-                "encoded_count": encoded_count,
-                "details": name_eval
-            })
-
-        results.sort(key=lambda x: x["name_score_pct"], reverse=True)
-        return results
 
     def calculate_text_score(self, val1: str, val2: str) -> float:
         """Calculate similarity for textual attributes."""
@@ -178,7 +109,7 @@ class HCPMatchScorer:
             return 0.0
         if d1 == d2:
             return 1.0
-        if d1[-7:] == d2[-7:]:
+        if d1[-7:] == d2[-7:]:  # Last 7 digits match
             return 0.9
         return 0.0
 
@@ -197,7 +128,8 @@ class HCPMatchScorer:
 
     def score_pair(self, candidate: dict, master_record: dict) -> dict:
         """
-        Version 2.0 Multi-Attribute Match Scorer with Encoding Frequency Tracking.
+        Intelligently evaluate candidate record against a masterlist record across ALL system fields.
+        Enforces Strict Zero-Match Name Penalty & Anchoring Logic.
         """
         field_scores = {}
         field_weights = {}
@@ -285,7 +217,8 @@ class HCPMatchScorer:
         z = 6.5 * (raw_weighted - 0.52)
         prob_ml = 1.0 / (1.0 + math.exp(-z))
         
-        # Version 2.0 Name Anchoring Rule:
+        # DOCTOR NAME ANCHORING RULE:
+        # If Doctor Name returns 0.0% (different doctor names), cap overall match probability in Low Tier (<50%)
         if field_scores["name"] == 0.0:
             prob_ml = min(prob_ml, 0.25)
             confidence_pct = round(prob_ml * 100 * (raw_weighted / 0.60), 1)
@@ -307,8 +240,6 @@ class HCPMatchScorer:
             action = "Keep records separate (Create New Record)"
             badge_color = "#EF4444"
 
-        encoded_count = master_record.get("encoded_count", 1)
-
         return {
             "master_id": master_record.get("id"),
             "master_record": master_record,
@@ -317,6 +248,5 @@ class HCPMatchScorer:
             "tier": tier,
             "action": action,
             "badge_color": badge_color,
-            "encoded_count": encoded_count,
             "breakdown": normalized_breakdown
         }

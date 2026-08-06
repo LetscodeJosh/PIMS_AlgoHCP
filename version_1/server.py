@@ -1,8 +1,7 @@
 """
-PIMS_AlgoHCP Standalone Microservice Server v2.0 - Protected & Unthrottled.
-Version 2.0 Features: Name-First Standalone Intelligent Pre-Detection Engine,
-Component-Level Linkage (Surname, Given, Middle), Encoding Frequency Counter,
-Digital Signature Lock, and Dictionary Auto-Commit.
+PIMS_AlgoHCP Standalone Microservice Server - Protected & Unthrottled.
+Runs isolated microservice with Digital Signature Support, Immutable True-Only-One Signature Lock,
+Clean Slate Real-World Simulation Mode, Conditional Merge Audit History, and Dictionary Auto-Commit.
 """
 
 import http.server
@@ -53,7 +52,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
-        query = urllib.parse.parse_qs(parsed_url.query)
 
         if path == "/api/masterlist":
             self._send_json({"status": "success", "masterlist": masterlist})
@@ -67,25 +65,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif path == "/api/merge-history":
             self._send_json({"status": "success", "history": workflow_mgr.history})
-
-        elif path == "/api/version":
-            self._send_json({
-                "status": "success",
-                "version": "2.0",
-                "engine_name": "PIMS_AlgoHCP Name-First Intelligent Deduplication Engine v2.0",
-                "features": [
-                    "Name-First Standalone Pre-Detection Engine",
-                    "Component-Level Linkage (Surname, First Name, Middle Name)",
-                    "Encoding Frequency Tracking (How many times encoded)",
-                    "Immutable True-Only-One Signature Lock",
-                    "Clean Slate Real-World Simulation Mode"
-                ]
-            })
-
-        elif path == "/api/detect-name":
-            name_query = query.get("name", [""])[0]
-            name_matches = scorer.detect_name_match(name_query, masterlist)
-            self._send_json({"status": "success", "name_query": name_query, "matches": name_matches})
 
         elif path == "/api/token":
             token = security_shield.generate_api_token("medrep_user_1", "MEDREP")
@@ -123,11 +102,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif path == "/api/seed-data":
             masterlist.clear()
-            for item in SAMPLE_MASTERLIST:
-                item_copy = dict(item)
-                item_copy["encoded_count"] = item_copy.get("encoded_count", 1)
-                masterlist.append(item_copy)
-
+            masterlist.extend(list(SAMPLE_MASTERLIST))
             dictionary_mgr.dictionary_db.clear()
             dictionary_mgr.dictionary_db.extend(list(SAMPLE_DICTIONARY))
             
@@ -144,12 +119,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             }
             matches = [scorer.score_pair(sample_cand, masterlist[0])]
             workflow_mgr.add_to_queue(sample_cand, matches)
-            self._send_json({"status": "success", "message": "Benchmark v2.0 dataset loaded successfully."})
-
-        elif path == "/api/detect-name":
-            name_query = payload.get("name", "")
-            name_matches = scorer.detect_name_match(name_query, masterlist)
-            self._send_json({"status": "success", "name_query": name_query, "matches": name_matches})
+            self._send_json({"status": "success", "message": "Benchmark dataset loaded successfully."})
 
         elif path == "/api/match":
             candidate = payload.get("candidate", {})
@@ -202,12 +172,10 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             if score_pct >= 88.0:
                 action_taken = "AUTO_MERGED"
+                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']})."
                 for m in masterlist:
                     if m["id"] == top_match["master_id"]:
                         m["has_merge_history"] = True
-                        m["encoded_count"] = m.get("encoded_count", 1) + 1
-                        enc_count = m["encoded_count"]
-                msg = f"High Confidence Match ({score_pct}%). Candidate linked automatically to Master Record ({top_match['master_id']}). Encoded {enc_count}x in Web App."
             elif score_pct >= 50.0:
                 review_item = workflow_mgr.add_to_queue(candidate, matches, "MATCH_REVIEW")
                 action_taken = "PENDING_MANAGER_REVIEW"
@@ -228,8 +196,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "signature_png": candidate.get("signature_png", ""),
                     "signature_status": "PENDING_VERIFICATION",
                     "status": "PENDING_MANAGERIAL_VERIFICATION",
-                    "has_merge_history": False,
-                    "encoded_count": 1
+                    "has_merge_history": False
                 }
                 masterlist.append(new_rec)
                 
@@ -253,7 +220,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             target_rec = next((m for m in masterlist if m["id"] == master_id), None)
             if target_rec:
                 target_rec["has_merge_history"] = True
-                target_rec["encoded_count"] = target_rec.get("encoded_count", 1) + 1
             
             log_item = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -267,7 +233,7 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json({
                 "status": "success",
                 "action_taken": "LINKED_TO_EXISTING_RECORD",
-                "message": f"Candidate doctor record linked to existing Master Profile ({master_id}). Duplicate prevented! Encoded {target_rec.get('encoded_count', 1)}x.",
+                "message": f"Candidate doctor record linked to existing Master Profile ({master_id}). Duplicate prevented!",
                 "target_record": target_rec
             })
 
@@ -301,7 +267,6 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         m["signature_status"] = "LOCKED_TRUE_ONLY_ONE"
                         if action == "MERGE_RECORD":
                             m["has_merge_history"] = True
-                            m["encoded_count"] = m.get("encoded_count", 1) + 1
                         if cand.get("signature_png"):
                             m["signature_png"] = cand.get("signature_png")
                         m["verified_by"] = actor
@@ -353,7 +318,7 @@ def run_server():
     os.makedirs(WEB_DIR, exist_ok=True)
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("0.0.0.0", PORT), AlgoHCPRequestHandler) as httpd:
-        print(f"PIMS_AlgoHCP Standalone Protected Microservice v2.0 running on http://0.0.0.0:{PORT}")
+        print(f"PIMS_AlgoHCP Standalone Protected Microservice running on http://0.0.0.0:{PORT}")
         httpd.serve_forever()
 
 if __name__ == "__main__":
