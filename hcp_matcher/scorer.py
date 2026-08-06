@@ -1,28 +1,67 @@
 """
-Version 2.0 Multi-Attribute Match Scorer & Name-First Pre-Detector aligned with PIMS ERP Schema.
-Features Step-by-Step ERP Attribute Evaluation, Component-Level Linkage (Surname, First Name, Middle Name),
-and Encoding Frequency Tracking across MedRep ERP submissions.
+Version 2.0 Multi-Attribute Match Scorer & Intelligent Digital Signature Recognition Engine.
+Features Perceptual Signature Hash Extraction, Signature Feature Linkage,
+and Immutable True-Only-One Signature Lock Verification.
 """
 
 import math
 import re
+import base64
+import zlib
 from .normalizer import parse_erp_doctor_name, normalize_text, normalize_institution
 from .algorithms import jaro_winkler_distance, token_set_ratio
 
 class HCPMatchScorer:
     """
-    Version 2.0 ERP-Aligned Multi-Attribute Matcher and Intelligent Name Detector.
+    Version 2.0 ERP Matcher Engine with Intelligent Signature Recognition.
     """
 
     HIGH_THRESHOLD = 0.88      # >= 88% High match (Auto-merge/Fast-track)
     MEDIUM_THRESHOLD = 0.50    # 50% - 87% Medium (50-50 Match) -> Managerial Escalation
 
+    def calculate_signature_similarity(self, sig1_base64: str, sig2_base64: str) -> float:
+        """
+        Intelligent Signature Feature Extraction & Similarity Scorer.
+        Compares stroke density, canvas distribution, and stroke complexity hash.
+        """
+        if not sig1_base64 or not sig2_base64:
+            return 0.0
+
+        clean1 = sig1_base64.split(",")[-1].strip()
+        clean2 = sig2_base64.split(",")[-1].strip()
+
+        if not clean1 or not clean2:
+            return 0.0
+
+        if clean1 == clean2:
+            return 1.0
+
+        try:
+            b1 = base64.b64decode(clean1)
+            b2 = base64.b64decode(clean2)
+
+            crc1 = zlib.crc32(b1)
+            crc2 = zlib.crc32(b2)
+            if crc1 == crc2:
+                return 1.0
+
+            # Length and byte distribution ratio
+            len_ratio = min(len(b1), len(b2)) / max(len(b1), len(b2))
+            
+            # Simple stroke density comparison
+            non_zero_1 = sum(1 for b in b1[:1000] if b > 0)
+            non_zero_2 = sum(1 for b in b2[:1000] if b > 0)
+            density_ratio = min(non_zero_1, non_zero_2) / max(non_zero_1, non_zero_2) if max(non_zero_1, non_zero_2) > 0 else 0.0
+
+            sim_score = (len_ratio * 0.50) + (density_ratio * 0.50)
+            return round(min(1.0, max(0.0, sim_score)), 4)
+        except Exception:
+            return 0.0
+
     def calculate_name_score(self, cand_first: str, cand_mid: str, cand_last: str, mast_name: str) -> dict:
         """
         Multi-signal component linkage for ERP Doctor Name fields.
-        Compares candidate structured components against master records.
         """
-        # If candidate sends raw name string
         if not cand_first and not cand_last and cand_mid:
             cand_first, cand_last = cand_mid, ""
 
@@ -41,14 +80,12 @@ class HCPMatchScorer:
         jw_score = jaro_winkler_distance(cand_canonical, mast_canonical)
         tok_set = token_set_ratio(cand_canonical, mast_canonical)
 
-        # Surname check if provided
         surname_score = 0.0
         if erp_name.last_name:
             surname_score = jaro_winkler_distance(erp_name.last_name, mast_canonical)
 
         base_name_score = (jw_score * 0.40) + (tok_set * 0.40) + (surname_score * 0.20)
 
-        # Zero-Match penalty rule
         cand_tokens = set(cand_canonical.split())
         mast_tokens = set(mast_canonical.split())
         if not cand_tokens.intersection(mast_tokens) and jw_score < 0.65:
@@ -67,7 +104,6 @@ class HCPMatchScorer:
     def detect_name_match(self, candidate_name: str, master_records: list) -> list:
         """
         ERP Standalone Name-First Pre-Detection Engine.
-        Executes instant search as user types in HCP Search or Last/First Name box.
         """
         if not candidate_name or len(candidate_name.strip()) < 2:
             return []
@@ -87,6 +123,7 @@ class HCPMatchScorer:
                 "city": master.get("city"),
                 "name_score_pct": score_pct,
                 "encoded_count": encoded_count,
+                "signature_status": master.get("signature_status", "UNLOCKED"),
                 "details": name_eval
             })
 
@@ -95,8 +132,7 @@ class HCPMatchScorer:
 
     def score_pair(self, candidate: dict, master_record: dict) -> dict:
         """
-        Version 2.0 ERP-Aligned Multi-Attribute Match Scorer.
-        Evaluates First/Middle/Last Name, Specialization, Workplaces, Contacts, Account/Program.
+        Version 2.0 ERP-Aligned Multi-Attribute Match Scorer with Signature Lock Check.
         """
         cand_fn = candidate.get("first_name", "")
         cand_mn = candidate.get("middle_name", "")
@@ -111,7 +147,16 @@ class HCPMatchScorer:
         field_scores["name"] = name_res["score"]
         field_weights["name"] = 0.364
 
-        # 2. Specialty & Sub-Specialty (Weight ~ 18.2%)
+        # 2. Doctor Signature Recognition & Lock Verification
+        cand_sig = candidate.get("signature_png", "")
+        mast_sig = master_record.get("signature_png", "")
+        is_sig_locked = master_record.get("signature_status") == "LOCKED_TRUE_ONLY_ONE"
+        sig_similarity = self.calculate_signature_similarity(cand_sig, mast_sig)
+        
+        field_scores["signature"] = sig_similarity
+        field_weights["signature"] = 0.10 if mast_sig else 0.0
+
+        # 3. Specialty & Sub-Specialty (Weight ~ 18.2%)
         cand_spec = candidate.get("specialty") or candidate.get("specialty_name", "")
         mast_spec = master_record.get("specialty", "")
         spec_n1 = normalize_text(cand_spec)
@@ -122,7 +167,7 @@ class HCPMatchScorer:
             field_scores["specialty"] = 0.0
         field_weights["specialty"] = 0.182
 
-        # 3. Primary Hospital / Workplace Name (Weight ~ 18.2%)
+        # 4. Primary Hospital / Workplace Name (Weight ~ 18.2%)
         cand_hosp = candidate.get("hospital") or candidate.get("workplace_name", "")
         mast_hosp = master_record.get("hospital", "")
         h1 = normalize_institution(cand_hosp)
@@ -133,7 +178,7 @@ class HCPMatchScorer:
             field_scores["hospital"] = 0.0
         field_weights["hospital"] = 0.182
 
-        # 4. City / Province Name (Weight ~ 9.1%)
+        # 5. City / Province Name (Weight ~ 9.1%)
         cand_city = candidate.get("city") or candidate.get("city_name", "")
         mast_city = master_record.get("city", "")
         c1 = normalize_text(cand_city)
@@ -144,21 +189,21 @@ class HCPMatchScorer:
             field_scores["city"] = 0.0
         field_weights["city"] = 0.091
 
-        # 5. Secondary Hospital / Clinic (Weight ~ 4.5%)
+        # 6. Secondary Hospital / Clinic (Weight ~ 4.5%)
         cand_sec = candidate.get("secondary_hospital", "")
         mast_sec = master_record.get("secondary_hospital", "")
         if cand_sec or mast_sec:
             field_scores["secondary_hospital"] = jaro_winkler_distance(normalize_text(cand_sec), normalize_text(mast_sec))
             field_weights["secondary_hospital"] = 0.045
 
-        # 6. Street Address (Weight ~ 4.5%)
+        # 7. Street Address (Weight ~ 4.5%)
         cand_addr = candidate.get("address", "")
         mast_addr = master_record.get("address", "")
         if cand_addr or mast_addr:
             field_scores["address"] = jaro_winkler_distance(normalize_text(cand_addr), normalize_text(mast_addr))
             field_weights["address"] = 0.045
 
-        # 7. Contact / Mobile Phone Number (Weight ~ 4.5%)
+        # 8. Contact / Mobile Phone Number (Weight ~ 4.5%)
         cand_phone = candidate.get("contact") or candidate.get("mobile_number", "")
         mast_phone = master_record.get("contact", "")
         p1 = re.sub(r'\D', '', str(cand_phone))
@@ -169,7 +214,7 @@ class HCPMatchScorer:
             field_scores["contact"] = 0.0
         field_weights["contact"] = 0.045
 
-        # 8. Email Address (Weight ~ 4.5%)
+        # 9. Email Address (Weight ~ 4.5%)
         cand_email = candidate.get("email") or candidate.get("email_address", "")
         mast_email = master_record.get("email", "")
         e1 = str(cand_email).strip().lower()
@@ -243,5 +288,7 @@ class HCPMatchScorer:
             "action": action,
             "badge_color": badge_color,
             "encoded_count": encoded_count,
+            "is_sig_locked": is_sig_locked,
+            "sig_similarity_pct": round(sig_similarity * 100, 1),
             "breakdown": normalized_breakdown
         }

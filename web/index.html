@@ -148,10 +148,11 @@
 
               <div class="form-group">
                 <label style="font-size:0.8rem;">Photo Attachment</label>
-                <div style="background:#0F172A; border:1px dashed var(--border-color); border-radius:var(--radius-sm); text-align:center; padding:1.2rem; height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div style="background:#0F172A; border:1px dashed var(--border-color); border-radius:var(--radius-sm); text-align:center; padding:0.8rem; min-height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                   <input type="file" id="input-erp-photo" accept="image/*" style="display:none;">
                   <button type="button" class="btn btn-secondary" style="font-size:0.78rem; padding:0.35rem 0.8rem;" onclick="document.getElementById('input-erp-photo').click()">📷 Attach Photo</button>
                   <span style="font-size:0.7rem; color:var(--text-dim); margin-top:0.4rem;" id="photo-file-label">No file selected</span>
+                  <img id="erp-photo-img-preview" style="max-width:100%; max-height:90px; border-radius:6px; margin-top:0.5rem; display:none; border:1px solid var(--primary-light); object-fit:contain;" alt="Uploaded Photo Preview">
                 </div>
               </div>
             </div>

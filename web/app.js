@@ -284,7 +284,11 @@ async function runAutoDetectScan() {
       const nameMatch = (nameData.matches && nameData.matches.length > 0) ? nameData.matches[0] : null;
       const encCount = top.encoded_count || (nameMatch ? nameMatch.encoded_count : 1);
 
-      bannerTitle.innerHTML = `👤 Name-First Auto-Detection: <strong>${top.confidence_pct}% Match</strong> with <u>${top.master_record.name}</u> <span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B">🔥 Encoded ${encCount}x</span>`;
+      const sigBadge = top.is_sig_locked
+        ? `<span class="badge" style="background:rgba(239,68,68,0.25); color:#EF4444; margin-left:0.3rem;">🔒 Signature Locked (Immutable - Level 2 Approved)</span>`
+        : `<span class="badge" style="background:rgba(16,185,129,0.25); color:#10B981; margin-left:0.3rem;">✍️ Signature Vector: ${top.sig_similarity_pct || 0}%</span>`;
+
+      bannerTitle.innerHTML = `👤 Name-First Auto-Detection: <strong>${top.confidence_pct}% Match</strong> with <u>${top.master_record.name}</u> <span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B">🔥 Encoded ${encCount}x</span> ${sigBadge}`;
       bannerDesc.textContent = `Master ID: ${top.master_id} | ${top.master_record.hospital} | ${top.master_record.specialty} | Name Linkage: ${nameMatch ? nameMatch.name_score_pct : 0}%`;
 
       bannerBadge.innerHTML = `
@@ -313,6 +317,26 @@ function setupErpWizard() {
   const saveBtn = document.getElementById("btn-save-erp-submission");
   if (saveBtn) {
     saveBtn.addEventListener("click", submitMedRepEntry);
+  }
+
+  const photoInput = document.getElementById("input-erp-photo");
+  if (photoInput) {
+    photoInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const label = document.getElementById("photo-file-label");
+        if (label) label.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imgPreview = document.getElementById("erp-photo-img-preview");
+          if (imgPreview) {
+            imgPreview.src = event.target.result;
+            imgPreview.style.display = "block";
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
   }
 
   // Update date field
