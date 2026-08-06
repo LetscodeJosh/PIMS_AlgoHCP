@@ -123,8 +123,8 @@ function initSignaturePad() {
   sigCanvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(getTouchPos(e)); });
   sigCanvas.addEventListener("touchend", stopDrawing);
 
-  document.getElementById("btn-clear-sig").addEventListener("click", clearSignaturePad);
-  document.getElementById("btn-sample-sig").addEventListener("click", drawSampleSignature);
+  const clearBtn = document.getElementById("btn-clear-sig");
+  if (clearBtn) clearBtn.addEventListener("click", clearSignaturePad);
 }
 
 function getTouchPos(e) {
@@ -438,9 +438,6 @@ function loadErpPreset(fn, mn, ln, spec, hosp, city, prov, contact, email) {
   if (document.getElementById("input-doc-city")) document.getElementById("input-doc-city").value = city;
   if (document.getElementById("input-doc-province")) document.getElementById("input-doc-province").value = prov;
   if (document.getElementById("input-doc-contact")) document.getElementById("input-doc-contact").value = contact;
-  if (document.getElementById("input-doc-email")) document.getElementById("input-doc-email").value = email;
-
-  drawSampleSignature();
   switchErpStep('2');
   triggerAutoDetect();
 }
