@@ -112,20 +112,15 @@ function initSignaturePad() {
   if (!sigCanvas) return;
   sigCtx = sigCanvas.getContext("2d", { willReadFrequently: true });
 
-  let lastWidth = 0;
-  let lastHeight = 0;
-
-  function fitCanvasResolution() {
+  function setupCanvasDimensions() {
     if (!sigCanvas) return;
     const rect = sigCanvas.getBoundingClientRect();
-    const w = rect.width || sigCanvas.offsetWidth || 500;
-    const h = rect.height || sigCanvas.offsetHeight || 120;
+    const w = Math.round(rect.width || 500);
+    const h = Math.round(rect.height || 120);
     
-    if (Math.abs(sigCanvas.width - w) > 2 || Math.abs(sigCanvas.height - h) > 2 || lastWidth === 0) {
+    if (sigCanvas.width !== w || sigCanvas.height !== h) {
       sigCanvas.width = w;
       sigCanvas.height = h;
-      lastWidth = w;
-      lastHeight = h;
     }
     
     sigCtx.strokeStyle = "#38BDF8";
@@ -134,32 +129,33 @@ function initSignaturePad() {
     sigCtx.lineJoin = "round";
   }
 
-  fitCanvasResolutionGlobal = fitCanvasResolution;
-
-  fitCanvasResolution();
-  window.addEventListener("resize", fitCanvasResolution);
+  fitCanvasResolutionGlobal = setupCanvasDimensions;
+  setupCanvasDimensions();
+  window.addEventListener("resize", setupCanvasDimensions);
 
   function getPos(e) {
     const rect = sigCanvas.getBoundingClientRect();
     let cx = e.clientX;
     let cy = e.clientY;
-    if (e.touches && e.touches[0]) {
+
+    if (e.touches && e.touches.length > 0) {
       cx = e.touches[0].clientX;
       cy = e.touches[0].clientY;
     }
+
+    const scaleX = sigCanvas.width / (rect.width || 1);
+    const scaleY = sigCanvas.height / (rect.height || 1);
+
     return {
-      x: cx - rect.left,
-      y: cy - rect.top
+      x: (cx - rect.left) * scaleX,
+      y: (cy - rect.top) * scaleY
     };
   }
 
   function handleStart(e) {
-    if (e.cancelable && (e.type === "touchstart" || e.type === "pointerdown")) {
+    if (e.cancelable && e.type !== "mousedown") {
       e.preventDefault();
     }
-    
-    // Always fit resolution on drawing start to ensure stroke color is initialized correctly
-    fitCanvasResolution();
 
     isDrawing = true;
     hasSignatureDrawn = true;
@@ -183,7 +179,7 @@ function initSignaturePad() {
 
   function handleMove(e) {
     if (!isDrawing || !sigCtx) return;
-    if (e.cancelable && (e.type === "touchmove" || e.type === "pointermove")) {
+    if (e.cancelable && e.type !== "mousemove") {
       e.preventDefault();
     }
 
@@ -204,21 +200,20 @@ function initSignaturePad() {
     }
   }
 
-  // Mouse Listeners
-  sigCanvas.addEventListener("mousedown", handleStart);
-  sigCanvas.addEventListener("mousemove", handleMove);
-  window.addEventListener("mouseup", handleEnd);
-
-  // Touch Listeners
-  sigCanvas.addEventListener("touchstart", handleStart, { passive: false });
-  sigCanvas.addEventListener("touchmove", handleMove, { passive: false });
-  window.addEventListener("touchend", handleEnd);
-
-  // Pointer Listeners
+  // Bind single event model: PointerEvents if available, else Mouse+Touch
   if (window.PointerEvent) {
     sigCanvas.addEventListener("pointerdown", handleStart, { passive: false });
     sigCanvas.addEventListener("pointermove", handleMove, { passive: false });
     window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+  } else {
+    sigCanvas.addEventListener("mousedown", handleStart);
+    sigCanvas.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleEnd);
+
+    sigCanvas.addEventListener("touchstart", handleStart, { passive: false });
+    sigCanvas.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
   }
 
   const clearBtn = document.getElementById("btn-clear-sig");
@@ -226,10 +221,15 @@ function initSignaturePad() {
 }
 
 function clearSignaturePad() {
-  if (!sigCtx) return;
+  if (!sigCtx || !sigCanvas) return;
   sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigCtx.strokeStyle = "#38BDF8";
+  sigCtx.lineWidth = 3.5;
+  sigCtx.lineCap = "round";
+  sigCtx.lineJoin = "round";
   hasSignatureDrawn = false;
-  document.getElementById("sig-pad-wrapper").style.borderColor = "var(--border-color)";
+  const pad = document.getElementById("sig-pad-wrapper");
+  if (pad) pad.style.borderColor = "var(--border-color)";
   checkAndToggleErpSteps();
 }
 
