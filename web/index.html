@@ -194,70 +194,54 @@
               </div>
             </div>
 
-            <div class="erp-section-title">Specialization / Type / Practice</div>
-            <div class="grid-2" style="margin-bottom:0.75rem;">
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Specialty Name <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-spec" class="form-control auto-detect-field" placeholder="e.g. Cardiology" value="">
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Sub Specialty Name</label>
-                <input type="text" id="input-doc-subspec" class="form-control auto-detect-field" placeholder="e.g. Interventional Cardiology" value="">
-              </div>
+            <!-- DYNAMIC SPECIALIZATION / TYPE / PRACTICE TABLE -->
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="erp-section-title">
+              <span>Specialization / Type / Practice</span>
+              <button type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;" onclick="addSpecializationRow()">➕ Add Specialization Row</button>
             </div>
 
-            <div class="grid-2">
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Type <span style="color:#EF4444">*</span></label>
-                <select id="input-doc-type" class="form-control">
-                  <option value="Physician" selected>Physician</option>
-                  <option value="Dentist">Dentist</option>
-                  <option value="Pharmacist">Pharmacist</option>
-                  <option value="Nurse">Nurse</option>
-                  <option value="Allied Health">Allied Health</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Practice <span style="color:#EF4444">*</span></label>
-                <select id="input-doc-practice" class="form-control">
-                  <option value="Private" selected>Private</option>
-                  <option value="Government">Government</option>
-                  <option value="Both">Both (Private & Government)</option>
-                  <option value="Academic">Academic</option>
-                </select>
-              </div>
+            <div style="overflow-x:auto; margin-bottom:1rem;">
+              <table class="table" style="font-size:0.78rem; width:100%;">
+                <thead>
+                  <tr style="background:rgba(15,23,42,0.8);">
+                    <th style="min-width:140px;">Specialty Name *</th>
+                    <th style="min-width:140px;">Sub Specialty Name</th>
+                    <th style="min-width:110px;">Type *</th>
+                    <th style="min-width:110px;">Practice *</th>
+                    <th style="width:40px; text-align:center;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="specialization-rows-tbody">
+                  <!-- Dynamic Specialization Rows -->
+                </tbody>
+              </table>
             </div>
 
-            <div class="erp-section-title">Workplaces / Contact Info</div>
-            <div class="grid-3" style="grid-template-columns: repeat(3, 1fr); gap:0.5rem;">
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Workplace Name <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-hosp" class="form-control auto-detect-field" placeholder="e.g. St. Lukes Hospital BGC" value="">
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.78rem;">City Name <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-city" class="form-control auto-detect-field" placeholder="e.g. Taguig City" value="">
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Province Name <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-province" class="form-control auto-detect-field" placeholder="e.g. Metro Manila" value="">
-              </div>
+            <!-- DYNAMIC WORKPLACES / LOCATIONS & CONTACT INFO TABLE -->
+            <div style="display:flex; justify-content:space-between; align-items:center;" class="erp-section-title">
+              <span>Workplaces / Locations & Contact Info</span>
+              <button type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.6rem;" onclick="addWorkplaceRow()">➕ Add Workplace / Location Row</button>
             </div>
 
-            <div class="grid-2">
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Mobile/Phone Number <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-contact" class="form-control auto-detect-field" placeholder="e.g. 09171234567" value="">
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.78rem;">Email Address <span style="color:#EF4444">*</span></label>
-                <input type="text" id="input-doc-email" class="form-control auto-detect-field" placeholder="e.g. dr.cruz@stlukes.ph" value="">
-              </div>
+            <div style="overflow-x:auto; margin-bottom:1rem;">
+              <table class="table" style="font-size:0.78rem; width:100%;">
+                <thead>
+                  <tr style="background:rgba(15,23,42,0.8);">
+                    <th style="min-width:140px;">Workplace Name *</th>
+                    <th style="min-width:120px;">Secondary Clinic</th>
+                    <th style="min-width:100px;">City Name *</th>
+                    <th style="min-width:100px;">Province Name *</th>
+                    <th style="min-width:110px;">Street Address</th>
+                    <th style="min-width:110px;">Mobile Number *</th>
+                    <th style="min-width:130px;">Email Address *</th>
+                    <th style="width:40px; text-align:center;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="workplace-rows-tbody">
+                  <!-- Dynamic Workplace Rows -->
+                </tbody>
+              </table>
             </div>
-
-            <!-- Hidden fields for backwards compatibility -->
-            <input type="hidden" id="input-doc-sec-hosp" value="Makati Med Annex">
-            <input type="hidden" id="input-doc-address" value="32nd St, BGC">
 
             <div style="display:flex; justify-content:space-between; margin-top:1rem;">
               <button type="button" class="btn btn-secondary" onclick="switchErpStep('1')">⬅️ Back: Step 1</button>

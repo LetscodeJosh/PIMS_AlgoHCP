@@ -427,138 +427,135 @@ function setupErpWizard() {
     dateInput.value = now.toISOString().slice(0, 10) + " " + now.toTimeString().slice(0, 8);
   }
 
+  // Initialize at least 1 row for Specializations and Workplaces
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  if (specTbody && specTbody.children.length === 0) {
+    addSpecializationRow();
+  }
+
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (workTbody && workTbody.children.length === 0) {
+    addWorkplaceRow();
+  }
+
   checkAndToggleErpSteps();
 }
 
-function parseInputDoctorName(rawInput) {
-  if (!rawInput) return { firstName: "", middleName: "", lastName: "" };
+function addSpecializationRow(spec = "", subspec = "", type = "Consultant", practice = "Prescribing") {
+  const tbody = document.getElementById("specialization-rows-tbody");
+  if (!tbody) return;
 
-  // Strip common titles (case insensitive)
-  let cleaned = rawInput.replace(/\b(DR|DRA|DOCTOR|DOCTORA|MD|M\.D|FPCP|FPOA|FPAFP|PROF|DOC)\b\.?/gi, "").trim();
-  cleaned = cleaned.replace(/\s+/g, " ");
+  const rowId = "spec-row-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  const tr = document.createElement("tr");
+  tr.id = rowId;
+  tr.innerHTML = `
+    <td><input type="text" class="form-control spec-name auto-detect-field" placeholder="e.g. Cardiology" value="${spec}"></td>
+    <td><input type="text" class="form-control spec-subspec auto-detect-field" placeholder="e.g. Interventional Cardiology" value="${subspec}"></td>
+    <td>
+      <select class="form-control spec-type">
+        <option value="Consultant" ${type === "Consultant" ? "selected" : ""}>Consultant</option>
+        <option value="Resident" ${type === "Resident" ? "selected" : ""}>Resident</option>
+        <option value="Fellow" ${type === "Fellow" ? "selected" : ""}>Fellow</option>
+      </select>
+    </td>
+    <td>
+      <select class="form-control spec-practice">
+        <option value="Prescribing" ${practice === "Prescribing" ? "selected" : ""}>Prescribing</option>
+        <option value="Dispensing" ${practice === "Dispensing" ? "selected" : ""}>Dispensing</option>
+        <option value="Both" ${practice === "Both" ? "selected" : ""}>Both</option>
+      </select>
+    </td>
+    <td style="text-align:center;">
+      <button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:0.2rem 0.4rem; color:#EF4444;" onclick="removeRow('${rowId}', 'spec')">🗑️</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
 
-  if (!cleaned) return { firstName: "", middleName: "", lastName: "" };
+  tr.querySelectorAll(".auto-detect-field").forEach(input => {
+    input.addEventListener("keyup", triggerAutoDetect);
+    input.addEventListener("change", triggerAutoDetect);
+  });
 
-  // Check if format is "Lastname, Firstname Middlename"
-  if (cleaned.includes(",")) {
-    const parts = cleaned.split(",").map(p => p.trim());
-    const lastName = parts[0] || "";
-    const firstMid = (parts[1] || "").split(" ");
-    const firstName = firstMid[0] || "";
-    const middleName = firstMid.slice(1).join(" ") || "";
-    return { firstName, middleName, lastName };
-  }
-
-  const words = cleaned.split(" ");
-  if (words.length === 1) {
-    return { firstName: words[0], middleName: "", lastName: "" };
-  }
-  if (words.length === 2) {
-    return { firstName: words[0], middleName: "", lastName: words[1] };
-  }
-
-  // Compound surname prefixes in Philippines
-  const compoundPrefixes = ["DE", "LA", "DELA", "DELOS", "DEL", "SAN", "SANTA", "SANTO", "ST", "STA", "STO"];
-
-  // Check if last two or three words form a compound surname
-  let lastNameIndex = words.length - 1;
-  for (let i = words.length - 2; i >= 1; i--) {
-    if (compoundPrefixes.includes(words[i].toUpperCase())) {
-      lastNameIndex = i;
-    } else {
-      break;
-    }
-  }
-
-  const lastName = words.slice(lastNameIndex).join(" ");
-  const remaining = words.slice(0, lastNameIndex);
-
-  let firstName = "";
-  let middleName = "";
-
-  if (remaining.length === 1) {
-    firstName = remaining[0];
-  } else if (remaining.length === 2) {
-    firstName = remaining[0];
-    middleName = remaining[1];
-  } else if (remaining.length > 2) {
-    firstName = remaining.slice(0, -1).join(" ");
-    middleName = remaining[remaining.length - 1];
-  }
-
-  return { firstName, middleName, lastName };
+  triggerAutoDetect();
 }
 
-function checkAndToggleErpSteps() {
-  const check = isStep1Valid();
-  const gatedButtons = document.querySelectorAll(".erp-gated-step");
-  const lockMsg = document.getElementById("erp-step-lock-msg");
+function addWorkplaceRow(hosp = "", secHosp = "", city = "", prov = "", addr = "", contact = "", email = "") {
+  const tbody = document.getElementById("workplace-rows-tbody");
+  if (!tbody) return;
 
-  if (check.isValid) {
-    gatedButtons.forEach(btn => {
-      btn.style.display = "inline-flex";
-    });
-    if (lockMsg) {
-      lockMsg.innerHTML = `<span style="color:#10B981; font-weight:600;">🔓 Step 1 Accomplished! Remaining Steps Unlocked</span>`;
-    }
-  } else {
-    gatedButtons.forEach(btn => {
-      btn.style.display = "none";
-    });
-    if (lockMsg) {
-      lockMsg.innerHTML = `<span style="color:#F59E0B;">🔒 Check Consent & Sign Signature to Unlock Steps</span>`;
-    }
-    const activeBtn = document.querySelector(".erp-step-btn.active");
-    if (activeBtn && activeBtn.getAttribute("data-step") !== "1") {
-      switchErpStep("1");
-    }
+  const rowId = "work-row-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  const tr = document.createElement("tr");
+  tr.id = rowId;
+  tr.innerHTML = `
+    <td><input type="text" class="form-control work-hosp auto-detect-field" placeholder="e.g. St. Lukes Hospital BGC" value="${hosp}"></td>
+    <td><input type="text" class="form-control work-sec-hosp auto-detect-field" placeholder="e.g. Makati Med Annex" value="${secHosp}"></td>
+    <td><input type="text" class="form-control work-city auto-detect-field" placeholder="e.g. Taguig City" value="${city}"></td>
+    <td><input type="text" class="form-control work-prov auto-detect-field" placeholder="e.g. Metro Manila" value="${prov}"></td>
+    <td><input type="text" class="form-control work-addr auto-detect-field" placeholder="e.g. 32nd St, BGC" value="${addr}"></td>
+    <td><input type="text" class="form-control work-contact auto-detect-field" placeholder="e.g. 09171234567" value="${contact}"></td>
+    <td><input type="text" class="form-control work-email auto-detect-field" placeholder="e.g. dr.cruz@stlukes.ph" value="${email}"></td>
+    <td style="text-align:center;">
+      <button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:0.2rem 0.4rem; color:#EF4444;" onclick="removeRow('${rowId}', 'work')">🗑️</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+
+  tr.querySelectorAll(".auto-detect-field").forEach(input => {
+    input.addEventListener("keyup", triggerAutoDetect);
+    input.addEventListener("change", triggerAutoDetect);
+  });
+
+  triggerAutoDetect();
+}
+
+function removeRow(rowId, type) {
+  const row = document.getElementById(rowId);
+  if (row) {
+    row.remove();
   }
-}
-window.checkAndToggleErpSteps = checkAndToggleErpSteps;
-
-function isStep1Valid() {
-  const consent = document.getElementById("chk-erp-consent");
-  const isConsentChecked = consent ? consent.checked : false;
-  const sigUrl = getSignatureDataUrl();
-  const isSigDrawn = hasSignatureDrawn || (sigUrl && sigUrl.length > 0);
-
-  return {
-    isValid: isConsentChecked && isSigDrawn,
-    isConsentChecked,
-    isSigDrawn
-  };
-}
-
-function switchErpStep(step) {
-  if (step !== "1") {
-    const check = isStep1Valid();
-    if (!check.isValid) {
-      const missing = [];
-      if (!check.isConsentChecked) missing.push("Privacy Notice & Consent Checkbox");
-      if (!check.isSigDrawn) missing.push("Doctor Digital Signature");
-
-      const pad = document.getElementById("sig-pad-wrapper");
-      if (pad && !check.isSigDrawn) pad.style.borderColor = "#EF4444";
-
-      showWarningModal(
-        "⚠️ Step 1 Validation Required",
-        `You cannot proceed to Step 2 or other steps! Mandatory items in Step 1 are missing:\n\n• ${missing.join("\n• ")}\n\nPlease check the consent checkbox and draw/affix doctor digital signature first.`
-      );
-      return false;
-    }
+  if (type === "spec") {
+    const tbody = document.getElementById("specialization-rows-tbody");
+    if (tbody && tbody.children.length === 0) addSpecializationRow();
+  } else if (type === "work") {
+    const tbody = document.getElementById("workplace-rows-tbody");
+    if (tbody && tbody.children.length === 0) addWorkplaceRow();
   }
-
-  document.querySelectorAll(".erp-step-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".erp-step-content").forEach(c => c.classList.remove("active"));
-
-  const btn = document.querySelector(`.erp-step-btn[data-step="${step}"]`);
-  if (btn) btn.classList.add("active");
-
-  const content = document.getElementById(`erp-step-${step}`);
-  if (content) content.classList.add("active");
-  return true;
+  triggerAutoDetect();
 }
-window.switchErpStep = switchErpStep;
+window.addSpecializationRow = addSpecializationRow;
+window.addWorkplaceRow = addWorkplaceRow;
+window.removeRow = removeRow;
+
+function getSpecializationRows() {
+  const rows = [];
+  document.querySelectorAll("#specialization-rows-tbody tr").forEach(tr => {
+    const spec = tr.querySelector(".spec-name") ? tr.querySelector(".spec-name").value.trim() : "";
+    const subspec = tr.querySelector(".spec-subspec") ? tr.querySelector(".spec-subspec").value.trim() : "";
+    const type = tr.querySelector(".spec-type") ? tr.querySelector(".spec-type").value : "Consultant";
+    const practice = tr.querySelector(".spec-practice") ? tr.querySelector(".spec-practice").value : "Prescribing";
+    if (spec || subspec) {
+      rows.push({ specialty: spec, sub_specialty: subspec, hcp_type: type, practice });
+    }
+  });
+  return rows;
+}
+
+function getWorkplaceRows() {
+  const rows = [];
+  document.querySelectorAll("#workplace-rows-tbody tr").forEach(tr => {
+    const hosp = tr.querySelector(".work-hosp") ? tr.querySelector(".work-hosp").value.trim() : "";
+    const secHosp = tr.querySelector(".work-sec-hosp") ? tr.querySelector(".work-sec-hosp").value.trim() : "";
+    const city = tr.querySelector(".work-city") ? tr.querySelector(".work-city").value.trim() : "";
+    const prov = tr.querySelector(".work-prov") ? tr.querySelector(".work-prov").value.trim() : "";
+    const addr = tr.querySelector(".work-addr") ? tr.querySelector(".work-addr").value.trim() : "";
+    const contact = tr.querySelector(".work-contact") ? tr.querySelector(".work-contact").value.trim() : "";
+    const email = tr.querySelector(".work-email") ? tr.querySelector(".work-email").value.trim() : "";
+    if (hosp || city || contact) {
+      rows.push({ hospital: hosp, secondary_hospital: secHosp, city, province: prov, address: addr, contact, email });
+    }
+  });
+  return rows;
+}
 
 function getMedRepInput() {
   const fn = (document.getElementById("input-doc-fn") ? document.getElementById("input-doc-fn").value.trim() : "");
@@ -571,6 +568,12 @@ function getMedRepInput() {
     full = `Dr. ${fn} ${mn} ${ln}`.replace(/\s+/g, ' ').trim();
   }
 
+  const specRows = getSpecializationRows();
+  const workRows = getWorkplaceRows();
+
+  const primarySpec = specRows[0] || { specialty: "", sub_specialty: "", hcp_type: "Consultant", practice: "Prescribing" };
+  const primaryWork = workRows[0] || { hospital: "", secondary_hospital: "", city: "", province: "", address: "", contact: "", email: "" };
+
   return {
     medrep_name: "MedRep Santos",
     medrep_email: (document.getElementById("input-erp-medrep-email") ? document.getElementById("input-erp-medrep-email").value.trim() : "medrep.santos@pims.com"),
@@ -579,17 +582,19 @@ function getMedRepInput() {
     last_name: ln,
     birth_date: (document.getElementById("input-doc-dob") ? document.getElementById("input-doc-dob").value : "1980-05-15"),
     name: full,
-    specialty: (document.getElementById("input-doc-spec") ? document.getElementById("input-doc-spec").value.trim() : ""),
-    sub_specialty: (document.getElementById("input-doc-subspec") ? document.getElementById("input-doc-subspec").value.trim() : ""),
-    hcp_type: (document.getElementById("input-doc-type") ? document.getElementById("input-doc-type").value : "Physician"),
-    practice: (document.getElementById("input-doc-practice") ? document.getElementById("input-doc-practice").value : "Private"),
-    hospital: (document.getElementById("input-doc-hosp") ? document.getElementById("input-doc-hosp").value.trim() : ""),
-    secondary_hospital: (document.getElementById("input-doc-sec-hosp") ? document.getElementById("input-doc-sec-hosp").value.trim() : "Makati Med Annex"),
-    address: (document.getElementById("input-doc-address") ? document.getElementById("input-doc-address").value.trim() : "32nd St, BGC"),
-    city: (document.getElementById("input-doc-city") ? document.getElementById("input-doc-city").value.trim() : ""),
-    province: (document.getElementById("input-doc-province") ? document.getElementById("input-doc-province").value.trim() : "Metro Manila"),
-    contact: (document.getElementById("input-doc-contact") ? document.getElementById("input-doc-contact").value.trim() : ""),
-    email: (document.getElementById("input-doc-email") ? document.getElementById("input-doc-email").value.trim() : ""),
+    specializations: specRows,
+    workplaces: workRows,
+    specialty: primarySpec.specialty,
+    sub_specialty: primarySpec.sub_specialty,
+    hcp_type: primarySpec.hcp_type,
+    practice: primarySpec.practice,
+    hospital: primaryWork.hospital,
+    secondary_hospital: primaryWork.secondary_hospital,
+    address: primaryWork.address,
+    city: primaryWork.city,
+    province: primaryWork.province,
+    contact: primaryWork.contact,
+    email: primaryWork.email,
     account_program: (document.getElementById("input-erp-account-program") ? document.getElementById("input-erp-account-program").value : "Abbott Diabetes Care"),
     territory_code: (document.getElementById("input-erp-territory") ? document.getElementById("input-erp-territory").value.trim() : "TERR-NCR-SOUTH-01"),
     consent_given: (document.getElementById("chk-erp-consent") ? document.getElementById("chk-erp-consent").checked : true),
@@ -601,12 +606,16 @@ function loadErpPreset(fn, mn, ln, spec, hosp, city, prov, contact, email) {
   if (document.getElementById("input-doc-fn")) document.getElementById("input-doc-fn").value = fn;
   if (document.getElementById("input-doc-mn")) document.getElementById("input-doc-mn").value = mn;
   if (document.getElementById("input-doc-ln")) document.getElementById("input-doc-ln").value = ln;
-  if (document.getElementById("input-doc-name")) document.getElementById("input-doc-name").value = `${fn} ${ln}`;
-  if (document.getElementById("input-doc-spec")) document.getElementById("input-doc-spec").value = spec;
-  if (document.getElementById("input-doc-hosp")) document.getElementById("input-doc-hosp").value = hosp;
-  if (document.getElementById("input-doc-city")) document.getElementById("input-doc-city").value = city;
-  if (document.getElementById("input-doc-province")) document.getElementById("input-doc-province").value = prov;
-  if (document.getElementById("input-doc-contact")) document.getElementById("input-doc-contact").value = contact;
+  if (document.getElementById("input-doc-name")) document.getElementById("input-doc-name").value = `Dr. ${fn} ${ln}`;
+
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  if (specTbody) specTbody.innerHTML = "";
+  addSpecializationRow(spec, "General Practice", "Consultant", "Prescribing");
+
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (workTbody) workTbody.innerHTML = "";
+  addWorkplaceRow(hosp, "Annex Clinic", city, prov, "Main St, Downtown", contact, email);
+
   switchErpStep('2');
   triggerAutoDetect();
 }
@@ -614,20 +623,14 @@ window.loadErpPreset = loadErpPreset;
 
 function validateMandatoryInput(candidate) {
   const missing = [];
-  const fieldsToCheck = [
+  const baseFields = [
     { key: "first_name", id: "input-doc-fn", label: "First Name" },
     { key: "last_name", id: "input-doc-ln", label: "Last Name" },
-    { key: "specialty", id: "input-doc-spec", label: "Specialty Name" },
-    { key: "hospital", id: "input-doc-hosp", label: "Workplace Name" },
-    { key: "city", id: "input-doc-city", label: "City Name" },
-    { key: "province", id: "input-doc-province", label: "Province Name" },
-    { key: "contact", id: "input-doc-contact", label: "Mobile/Phone Number" },
-    { key: "email", id: "input-doc-email", label: "Email Address" },
     { key: "territory_code", id: "input-erp-territory", label: "Territory Code" },
     { key: "medrep_email", id: "input-erp-medrep-email", label: "Medrep Email Address" }
   ];
 
-  fieldsToCheck.forEach(f => {
+  baseFields.forEach(f => {
     const elem = document.getElementById(f.id);
     if (!candidate[f.key] || candidate[f.key].length === 0) {
       missing.push(f.label);
@@ -636,6 +639,30 @@ function validateMandatoryInput(candidate) {
       if (elem) elem.style.borderColor = "";
     }
   });
+
+  if (!candidate.specialty) {
+    missing.push("Specialty Name (Add at least 1 Specialization Row)");
+  }
+
+  if (!candidate.hospital) {
+    missing.push("Workplace Name (Add at least 1 Workplace Row)");
+  }
+
+  if (!candidate.city) {
+    missing.push("City Name");
+  }
+
+  if (!candidate.province) {
+    missing.push("Province Name");
+  }
+
+  if (!candidate.contact) {
+    missing.push("Mobile/Phone Number");
+  }
+
+  if (!candidate.email) {
+    missing.push("Email Address");
+  }
 
   if (!candidate.consent_given) {
     missing.push("Privacy Notice & Consent Checkbox");
