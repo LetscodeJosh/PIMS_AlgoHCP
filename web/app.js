@@ -17,6 +17,7 @@ let sigCanvas, sigCtx;
 let isDrawing = false;
 let hasSignatureDrawn = false;
 let deferredPrompt = null;
+let fitCanvasResolutionGlobal = null;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -111,10 +112,32 @@ function initSignaturePad() {
   if (!sigCanvas) return;
   sigCtx = sigCanvas.getContext("2d", { willReadFrequently: true });
 
-  sigCtx.strokeStyle = "#38BDF8";
-  sigCtx.lineWidth = 3.5;
-  sigCtx.lineCap = "round";
-  sigCtx.lineJoin = "round";
+  let lastWidth = 0;
+  let lastHeight = 0;
+
+  function fitCanvasResolution() {
+    if (!sigCanvas) return;
+    const rect = sigCanvas.getBoundingClientRect();
+    const w = rect.width || sigCanvas.offsetWidth || 500;
+    const h = rect.height || sigCanvas.offsetHeight || 120;
+    
+    if (Math.abs(sigCanvas.width - w) > 2 || Math.abs(sigCanvas.height - h) > 2 || lastWidth === 0) {
+      sigCanvas.width = w;
+      sigCanvas.height = h;
+      lastWidth = w;
+      lastHeight = h;
+    }
+    
+    sigCtx.strokeStyle = "#38BDF8";
+    sigCtx.lineWidth = 3.5;
+    sigCtx.lineCap = "round";
+    sigCtx.lineJoin = "round";
+  }
+
+  fitCanvasResolutionGlobal = fitCanvasResolution;
+
+  fitCanvasResolution();
+  window.addEventListener("resize", fitCanvasResolution);
 
   function getPos(e) {
     const rect = sigCanvas.getBoundingClientRect();
@@ -124,17 +147,20 @@ function initSignaturePad() {
       cx = e.touches[0].clientX;
       cy = e.touches[0].clientY;
     }
-    const scaleX = sigCanvas.width / (rect.width || 1);
-    const scaleY = sigCanvas.height / (rect.height || 1);
-
     return {
-      x: (cx - rect.left) * scaleX,
-      y: (cy - rect.top) * scaleY
+      x: cx - rect.left,
+      y: cy - rect.top
     };
   }
 
   function handleStart(e) {
-    if (e.cancelable) e.preventDefault();
+    if (e.cancelable && (e.type === "touchstart" || e.type === "pointerdown")) {
+      e.preventDefault();
+    }
+    
+    // Always fit resolution on drawing start to ensure stroke color is initialized correctly
+    fitCanvasResolution();
+
     isDrawing = true;
     hasSignatureDrawn = true;
     const pad = document.getElementById("sig-pad-wrapper");
@@ -148,7 +174,7 @@ function initSignaturePad() {
     sigCtx.lineJoin = "round";
 
     sigCtx.beginPath();
-    sigCtx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    sigCtx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
     sigCtx.fill();
 
     sigCtx.beginPath();
@@ -157,7 +183,9 @@ function initSignaturePad() {
 
   function handleMove(e) {
     if (!isDrawing || !sigCtx) return;
-    if (e.cancelable) e.preventDefault();
+    if (e.cancelable && (e.type === "touchmove" || e.type === "pointermove")) {
+      e.preventDefault();
+    }
 
     const p = getPos(e);
     sigCtx.strokeStyle = "#38BDF8";
@@ -169,27 +197,28 @@ function initSignaturePad() {
     sigCtx.stroke();
   }
 
-  function handleEnd(e) {
+  function handleEnd() {
     if (isDrawing) {
       isDrawing = false;
       checkAndToggleErpSteps();
     }
   }
 
-  // Deduplicated event routing: Use PointerEvents if supported, else Mouse/Touch
+  // Mouse Listeners
+  sigCanvas.addEventListener("mousedown", handleStart);
+  sigCanvas.addEventListener("mousemove", handleMove);
+  window.addEventListener("mouseup", handleEnd);
+
+  // Touch Listeners
+  sigCanvas.addEventListener("touchstart", handleStart, { passive: false });
+  sigCanvas.addEventListener("touchmove", handleMove, { passive: false });
+  window.addEventListener("touchend", handleEnd);
+
+  // Pointer Listeners
   if (window.PointerEvent) {
     sigCanvas.addEventListener("pointerdown", handleStart, { passive: false });
     sigCanvas.addEventListener("pointermove", handleMove, { passive: false });
     window.addEventListener("pointerup", handleEnd);
-    window.addEventListener("pointercancel", handleEnd);
-  } else {
-    sigCanvas.addEventListener("mousedown", handleStart);
-    sigCanvas.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleEnd);
-
-    sigCanvas.addEventListener("touchstart", handleStart, { passive: false });
-    sigCanvas.addEventListener("touchmove", handleMove, { passive: false });
-    window.addEventListener("touchend", handleEnd);
   }
 
   const clearBtn = document.getElementById("btn-clear-sig");
@@ -266,6 +295,9 @@ function setupTabs() {
       const targetId = tab.getAttribute("data-tab");
       document.getElementById(targetId).classList.add("active");
 
+      if (targetId === "tab-medrep") {
+        if (fitCanvasResolutionGlobal) fitCanvasResolutionGlobal();
+      }
       if (targetId === "tab-reviews") loadReviews();
       if (targetId === "tab-masterlist") loadMasterlist();
       if (targetId === "tab-dictionary") loadDictionary();
