@@ -460,6 +460,80 @@ function setupErpWizard() {
   checkAndToggleErpSteps();
 }
 
+function isStep1Valid() {
+  const consent = document.getElementById("chk-erp-consent");
+  const isConsentChecked = consent ? consent.checked : false;
+  const sigUrl = getSignatureDataUrl();
+  const isSigDrawn = hasSignatureDrawn || (sigUrl && sigUrl.length > 0);
+
+  return {
+    isValid: isConsentChecked && isSigDrawn,
+    isConsentChecked,
+    isSigDrawn
+  };
+}
+window.isStep1Valid = isStep1Valid;
+
+function checkAndToggleErpSteps() {
+  const check = isStep1Valid();
+  const gatedButtons = document.querySelectorAll(".erp-gated-step");
+  const lockMsg = document.getElementById("erp-step-lock-msg");
+
+  if (check.isValid) {
+    gatedButtons.forEach(btn => {
+      btn.style.display = "inline-flex";
+    });
+    if (lockMsg) {
+      lockMsg.innerHTML = `<span style="color:#10B981; font-weight:600;">🔓 Step 1 Accomplished! Remaining Steps Unlocked</span>`;
+    }
+  } else {
+    gatedButtons.forEach(btn => {
+      btn.style.display = "none";
+    });
+    if (lockMsg) {
+      lockMsg.innerHTML = `<span style="color:#F59E0B;">🔒 Check Consent & Sign Signature to Unlock Steps</span>`;
+    }
+    const activeBtn = document.querySelector(".erp-step-btn.active");
+    if (activeBtn && activeBtn.getAttribute("data-step") !== "1") {
+      switchErpStep("1");
+    }
+  }
+}
+window.checkAndToggleErpSteps = checkAndToggleErpSteps;
+
+function switchErpStep(step) {
+  if (step !== "1") {
+    const check = isStep1Valid();
+    if (!check.isValid) {
+      const missing = [];
+      if (!check.isConsentChecked) missing.push("Privacy Notice & Consent Checkbox");
+      if (!check.isSigDrawn) missing.push("Doctor Digital Signature");
+
+      const pad = document.getElementById("sig-pad-wrapper");
+      if (pad && !check.isSigDrawn) pad.style.borderColor = "#EF4444";
+
+      showWarningModal(missing);
+      return false;
+    }
+  }
+
+  document.querySelectorAll(".erp-step-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".erp-step-content").forEach(c => c.classList.remove("active"));
+
+  const btn = document.querySelector(`.erp-step-btn[data-step="${step}"]`);
+  if (btn) btn.classList.add("active");
+
+  const content = document.getElementById(`erp-step-${step}`);
+  if (content) content.classList.add("active");
+
+  if (step === "1" && fitCanvasResolutionGlobal) {
+    fitCanvasResolutionGlobal();
+  }
+
+  return true;
+}
+window.switchErpStep = switchErpStep;
+
 function addSpecializationRow(spec = "", subspec = "", type = "Consultant", practice = "Prescribing") {
   const tbody = document.getElementById("specialization-rows-tbody");
   if (!tbody) return;
