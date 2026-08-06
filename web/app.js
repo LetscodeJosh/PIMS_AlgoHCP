@@ -14,6 +14,8 @@ let mergeHistoryData = [];
 let autoDetectDebounceTimer = null;
 
 let sigCanvas, sigCtx;
+let isDrawing = false;
+let hasSignatureDrawn = false;
 let deferredPrompt = null;
 
 if ('serviceWorker' in navigator) {
