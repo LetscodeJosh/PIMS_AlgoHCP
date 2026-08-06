@@ -149,12 +149,19 @@
               </div>
 
               <div class="form-group">
-                <label style="font-size:0.8rem;">Photo Attachment</label>
+                <label style="font-size:0.8rem;">Photo Attachment (Selfie / Proof)</label>
                 <div style="background:#0F172A; border:1px dashed var(--border-color); border-radius:var(--radius-sm); text-align:center; padding:0.8rem; min-height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                  <input type="file" id="input-erp-photo" accept="image/*" style="display:none;">
-                  <button type="button" class="btn btn-secondary" style="font-size:0.78rem; padding:0.35rem 0.8rem;" onclick="document.getElementById('input-erp-photo').click()">📷 Attach Photo</button>
+                  <input type="file" id="input-erp-photo" accept="image/*" capture="environment" style="display:none;">
+                  <div style="display:flex; gap:0.4rem; flex-wrap:wrap; justify-content:center;">
+                    <button type="button" class="btn btn-primary" style="font-size:0.78rem; padding:0.35rem 0.8rem; background:#2563EB;" onclick="openCameraModal('user')">
+                      📷 Take Front / Back Photo
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="font-size:0.78rem; padding:0.35rem 0.8rem;" onclick="document.getElementById('input-erp-photo').click()">
+                      📁 Upload File
+                    </button>
+                  </div>
                   <span style="font-size:0.7rem; color:var(--text-dim); margin-top:0.4rem;" id="photo-file-label">No file selected</span>
-                  <img id="erp-photo-img-preview" style="max-width:100%; max-height:90px; border-radius:6px; margin-top:0.5rem; display:none; border:1px solid var(--primary-light); object-fit:contain;" alt="Uploaded Photo Preview">
+                  <img id="erp-photo-img-preview" style="max-width:100%; max-height:110px; border-radius:6px; margin-top:0.5rem; display:none; border:1px solid var(--primary-light); object-fit:contain;" alt="Uploaded Photo Preview">
                 </div>
               </div>
             </div>
@@ -550,6 +557,41 @@
         <button class="btn btn-secondary" id="dict-modal-close" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
       </div>
       <div class="modal-body" id="dict-modal-body">
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE CAMERA SNAPSHOT & SELFIE MODAL -->
+  <div class="modal-backdrop" id="camera-modal-backdrop">
+    <div class="modal-card" style="max-width:550px; text-align:center;">
+      <div class="modal-header">
+        <h3 style="display:flex; align-items:center; gap:0.5rem;">
+          📷 Live Camera Capture (Front / Back Camera)
+        </h3>
+        <button class="btn btn-secondary" onclick="closeCameraModal()" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:1rem; text-align:center;">
+        <div style="position:relative; width:100%; max-width:480px; margin:0 auto; background:#020617; border-radius:8px; overflow:hidden; border:2px solid var(--primary-light);">
+          <video id="camera-video-stream" autoplay playsinline style="width:100%; height:280px; object-fit:cover; display:block; background:#000; transform: scaleX(-1);"></video>
+          <canvas id="camera-snapshot-canvas" style="display:none;"></canvas>
+          <div id="camera-mode-badge" class="badge" style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.7); color:#38BDF8; border:1px solid #38BDF8;">
+            🤳 Front Camera (Selfie Mode)
+          </div>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.75rem; margin-bottom:0.5rem;">
+          Position yourself or document inside the frame and tap <strong>Take Photo</strong>.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content:center; gap:0.6rem; flex-wrap:wrap;">
+        <button type="button" class="btn btn-secondary" id="btn-toggle-camera-facing" onclick="toggleCameraFacing()" style="font-size:0.8rem;">
+          🔄 Switch Camera (Front / Back)
+        </button>
+        <button type="button" class="btn btn-primary" onclick="captureCameraSnapshot()" style="font-size:0.85rem; padding:0.4rem 1.2rem; background:#10B981; border-color:#10B981;">
+          📸 Take Photo
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeCameraModal()" style="font-size:0.8rem;">
+          Cancel
+        </button>
       </div>
     </div>
   </div>

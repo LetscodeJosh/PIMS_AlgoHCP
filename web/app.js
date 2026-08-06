@@ -400,6 +400,7 @@ function setupErpWizard() {
     photoInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) {
+        delete photoInput.dataset.cameraDataUrl;
         const label = document.getElementById("photo-file-label");
         if (label) label.textContent = file.name;
         const reader = new FileReader();
@@ -414,6 +415,124 @@ function setupErpWizard() {
       }
     });
   }
+
+// LIVE CAMERA STREAM & FRONT/BACK SELFIE HANDLERS
+let currentStream = null;
+let currentFacingMode = "user"; // "user" = front selfie cam, "environment" = back cam
+
+async function openCameraModal(facingMode = "user") {
+  currentFacingMode = facingMode;
+  const backdrop = document.getElementById("camera-modal-backdrop");
+  if (backdrop) backdrop.classList.add("active");
+  await startCameraStream(currentFacingMode);
+}
+
+async function startCameraStream(facingMode) {
+  stopCameraStream();
+  const video = document.getElementById("camera-video-stream");
+  const badge = document.getElementById("camera-mode-badge");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Camera access is not supported on this browser/device. Please use the Upload File button.");
+    return;
+  }
+
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+
+    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (video) {
+      video.srcObject = currentStream;
+      if (facingMode === "user") {
+        video.style.transform = "scaleX(-1)";
+        if (badge) badge.textContent = "🤳 Front Camera (Selfie Mode)";
+      } else {
+        video.style.transform = "none";
+        if (badge) badge.textContent = "📷 Back Camera (Document / Photo)";
+      }
+    }
+  } catch (err) {
+    console.error("Camera access error:", err);
+    try {
+      currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (video) video.srcObject = currentStream;
+    } catch (e2) {
+      alert("Unable to access camera: " + (err.message || "Permission denied"));
+    }
+  }
+}
+
+async function toggleCameraFacing() {
+  currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+  await startCameraStream(currentFacingMode);
+}
+
+function stopCameraStream() {
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+    currentStream = null;
+  }
+  const video = document.getElementById("camera-video-stream");
+  if (video) video.srcObject = null;
+}
+
+function closeCameraModal() {
+  stopCameraStream();
+  const backdrop = document.getElementById("camera-modal-backdrop");
+  if (backdrop) backdrop.classList.remove("active");
+}
+
+function captureCameraSnapshot() {
+  const video = document.getElementById("camera-video-stream");
+  const canvas = document.getElementById("camera-snapshot-canvas");
+  const preview = document.getElementById("erp-photo-img-preview");
+  const label = document.getElementById("photo-file-label");
+
+  if (!video || !canvas) return;
+
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+
+  if (currentFacingMode === "user") {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+
+  ctx.drawImage(video, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+  if (preview) {
+    preview.src = dataUrl;
+    preview.style.display = "block";
+  }
+
+  if (label) {
+    label.textContent = `Captured Photo (${currentFacingMode === "user" ? "Selfie" : "Back Cam"} - ${new Date().toLocaleTimeString()})`;
+  }
+
+  const photoInput = document.getElementById("input-erp-photo");
+  if (photoInput) {
+    photoInput.dataset.cameraDataUrl = dataUrl;
+  }
+
+  closeCameraModal();
+}
+
+window.openCameraModal = openCameraModal;
+window.toggleCameraFacing = toggleCameraFacing;
+window.closeCameraModal = closeCameraModal;
+window.captureCameraSnapshot = captureCameraSnapshot;
 
   const consentChk = document.getElementById("chk-erp-consent");
   if (consentChk) {
@@ -691,7 +810,8 @@ function getMedRepInput() {
     account_program: (document.getElementById("input-erp-account-program") ? document.getElementById("input-erp-account-program").value : "Abbott Diabetes Care"),
     territory_code: (document.getElementById("input-erp-territory") ? document.getElementById("input-erp-territory").value.trim() : "TERR-NCR-SOUTH-01"),
     consent_given: (document.getElementById("chk-erp-consent") ? document.getElementById("chk-erp-consent").checked : true),
-    signature_png: getSignatureDataUrl()
+    signature_png: getSignatureDataUrl(),
+    photo_data_url: (document.getElementById("input-erp-photo") ? document.getElementById("input-erp-photo").dataset.cameraDataUrl || (document.getElementById("erp-photo-img-preview") ? document.getElementById("erp-photo-img-preview").src : "") : "")
   };
 }
 
