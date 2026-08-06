@@ -65,9 +65,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.getElementById("btn-check-recognizer").addEventListener("click", runRecognizerCheck);
-  document.getElementById("btn-submit-entry").addEventListener("click", submitMedRepEntry);
-  document.getElementById("btn-run-workbench").addEventListener("click", runWorkbenchTest);
+  const checkBtn = document.getElementById("btn-check-recognizer");
+  if (checkBtn) checkBtn.addEventListener("click", runRecognizerCheck);
+
+  const submitBtn = document.getElementById("btn-submit-entry");
+  if (submitBtn) submitBtn.addEventListener("click", submitMedRepEntry);
+
+  const runWbBtn = document.getElementById("btn-run-workbench");
+  if (runWbBtn) runWbBtn.addEventListener("click", runWorkbenchTest);
 
   const resetBtn = document.getElementById("btn-reset-clean-slate");
   if (resetBtn) resetBtn.addEventListener("click", resetToCleanSlate);
@@ -75,14 +80,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const seedBtn = document.getElementById("btn-load-benchmark-preset");
   if (seedBtn) seedBtn.addEventListener("click", loadBenchmarkPresets);
   
-  document.getElementById("warning-modal-close").addEventListener("click", closeWarningModal);
-  document.getElementById("warning-modal-btn").addEventListener("click", closeWarningModal);
+  const warnClose = document.getElementById("warning-modal-close");
+  if (warnClose) warnClose.addEventListener("click", closeWarningModal);
 
-  document.getElementById("modal-close-btn").addEventListener("click", closeModal);
-  document.getElementById("modal-cancel-btn").addEventListener("click", closeModal);
+  const warnBtn = document.getElementById("warning-modal-btn");
+  if (warnBtn) warnBtn.addEventListener("click", closeWarningModal);
+
+  const modalClose = document.getElementById("modal-close-btn");
+  if (modalClose) modalClose.addEventListener("click", closeModal);
+
+  const modalCancel = document.getElementById("modal-cancel-btn");
+  if (modalCancel) modalCancel.addEventListener("click", closeModal);
   
-  document.getElementById("snapshot-modal-close").addEventListener("click", closeSnapshotModal);
-  document.getElementById("dict-modal-close").addEventListener("click", () => {
+  const snapClose = document.getElementById("snapshot-modal-close");
+  if (snapClose) snapClose.addEventListener("click", closeSnapshotModal);
+
+  const dictClose = document.getElementById("dict-modal-close");
+  if (dictClose) dictClose.addEventListener("click", () => {
     document.getElementById("dict-modal-backdrop").classList.remove("active");
   });
 
@@ -319,6 +333,7 @@ function switchErpStep(step) {
   const content = document.getElementById(`erp-step-${step}`);
   if (content) content.classList.add("active");
 }
+window.switchErpStep = switchErpStep;
 
 function getMedRepInput() {
   const fn = (document.getElementById("input-doc-fn") ? document.getElementById("input-doc-fn").value.trim() : "");
@@ -373,6 +388,7 @@ function loadErpPreset(fn, mn, ln, spec, hosp, city, prov, contact, email) {
   switchErpStep('2');
   triggerAutoDetect();
 }
+window.loadErpPreset = loadErpPreset;
 
 function validateMandatoryInput(candidate) {
   const missing = [];
