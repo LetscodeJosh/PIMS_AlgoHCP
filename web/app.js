@@ -401,6 +401,25 @@ function setupErpWizard() {
     consentChk.addEventListener("change", checkAndToggleErpSteps);
   }
 
+  // Auto-parse & Auto-fill First Name, Middle Name, Last Name from HCP Search box
+  const searchInput = document.getElementById("input-doc-name");
+  const fnInput = document.getElementById("input-doc-fn");
+  const mnInput = document.getElementById("input-doc-mn");
+  const lnInput = document.getElementById("input-doc-ln");
+
+  if (searchInput && fnInput && lnInput) {
+    const handleNameSync = () => {
+      const parsed = parseInputDoctorName(searchInput.value);
+      fnInput.value = parsed.firstName;
+      if (mnInput) mnInput.value = parsed.middleName;
+      lnInput.value = parsed.lastName;
+    };
+
+    searchInput.addEventListener("input", handleNameSync);
+    searchInput.addEventListener("keyup", handleNameSync);
+    searchInput.addEventListener("change", handleNameSync);
+  }
+
   // Update date field
   const dateInput = document.getElementById("input-erp-sub-date");
   if (dateInput) {
@@ -409,6 +428,65 @@ function setupErpWizard() {
   }
 
   checkAndToggleErpSteps();
+}
+
+function parseInputDoctorName(rawInput) {
+  if (!rawInput) return { firstName: "", middleName: "", lastName: "" };
+
+  // Strip common titles (case insensitive)
+  let cleaned = rawInput.replace(/\b(DR|DRA|DOCTOR|DOCTORA|MD|M\.D|FPCP|FPOA|FPAFP|PROF|DOC)\b\.?/gi, "").trim();
+  cleaned = cleaned.replace(/\s+/g, " ");
+
+  if (!cleaned) return { firstName: "", middleName: "", lastName: "" };
+
+  // Check if format is "Lastname, Firstname Middlename"
+  if (cleaned.includes(",")) {
+    const parts = cleaned.split(",").map(p => p.trim());
+    const lastName = parts[0] || "";
+    const firstMid = (parts[1] || "").split(" ");
+    const firstName = firstMid[0] || "";
+    const middleName = firstMid.slice(1).join(" ") || "";
+    return { firstName, middleName, lastName };
+  }
+
+  const words = cleaned.split(" ");
+  if (words.length === 1) {
+    return { firstName: words[0], middleName: "", lastName: "" };
+  }
+  if (words.length === 2) {
+    return { firstName: words[0], middleName: "", lastName: words[1] };
+  }
+
+  // Compound surname prefixes in Philippines
+  const compoundPrefixes = ["DE", "LA", "DELA", "DELOS", "DEL", "SAN", "SANTA", "SANTO", "ST", "STA", "STO"];
+
+  // Check if last two or three words form a compound surname
+  let lastNameIndex = words.length - 1;
+  for (let i = words.length - 2; i >= 1; i--) {
+    if (compoundPrefixes.includes(words[i].toUpperCase())) {
+      lastNameIndex = i;
+    } else {
+      break;
+    }
+  }
+
+  const lastName = words.slice(lastNameIndex).join(" ");
+  const remaining = words.slice(0, lastNameIndex);
+
+  let firstName = "";
+  let middleName = "";
+
+  if (remaining.length === 1) {
+    firstName = remaining[0];
+  } else if (remaining.length === 2) {
+    firstName = remaining[0];
+    middleName = remaining[1];
+  } else if (remaining.length > 2) {
+    firstName = remaining.slice(0, -1).join(" ");
+    middleName = remaining[remaining.length - 1];
+  }
+
+  return { firstName, middleName, lastName };
 }
 
 function checkAndToggleErpSteps() {
