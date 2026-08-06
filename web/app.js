@@ -119,33 +119,45 @@ function initSignaturePad() {
   sigCanvas.addEventListener("mouseup", stopDrawing);
   sigCanvas.addEventListener("mouseleave", stopDrawing);
 
-  sigCanvas.addEventListener("touchstart", (e) => { e.preventDefault(); startDrawing(getTouchPos(e)); });
-  sigCanvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(getTouchPos(e)); });
+  sigCanvas.addEventListener("touchstart", startDrawing, { passive: false });
+  sigCanvas.addEventListener("touchmove", draw, { passive: false });
   sigCanvas.addEventListener("touchend", stopDrawing);
 
   const clearBtn = document.getElementById("btn-clear-sig");
   if (clearBtn) clearBtn.addEventListener("click", clearSignaturePad);
 }
 
-function getTouchPos(e) {
+function getCanvasPos(e) {
+  if (!sigCanvas) return { x: 0, y: 0 };
   const rect = sigCanvas.getBoundingClientRect();
-  const touch = e.touches[0];
-  return { clientX: touch.clientX, clientY: touch.clientY };
+  const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+  const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+
+  const scaleX = sigCanvas.width / (rect.width || 1);
+  const scaleY = sigCanvas.height / (rect.height || 1);
+
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
 }
 
 function startDrawing(e) {
+  if (e.type === "touchstart") e.preventDefault();
   isDrawing = true;
   hasSignatureDrawn = true;
-  document.getElementById("sig-pad-wrapper").style.borderColor = "var(--primary)";
-  const rect = sigCanvas.getBoundingClientRect();
+  const pad = document.getElementById("sig-pad-wrapper");
+  if (pad) pad.style.borderColor = "var(--primary)";
+  const pos = getCanvasPos(e);
   sigCtx.beginPath();
-  sigCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  sigCtx.moveTo(pos.x, pos.y);
 }
 
 function draw(e) {
   if (!isDrawing) return;
-  const rect = sigCanvas.getBoundingClientRect();
-  sigCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+  if (e.type === "touchmove") e.preventDefault();
+  const pos = getCanvasPos(e);
+  sigCtx.lineTo(pos.x, pos.y);
   sigCtx.stroke();
 }
 
