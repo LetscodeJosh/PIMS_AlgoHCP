@@ -400,17 +400,35 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "territory_code": candidate.get("territory_code"),
                     "medrep_email": candidate.get("medrep_email"),
                     "signature_png": candidate.get("signature_png", ""),
-                    "signature_status": "PENDING_VERIFICATION",
-                    "status": "PENDING_MANAGERIAL_VERIFICATION",
+                    "signature_status": "LOCKED_TRUE_ONLY_ONE",
+                    "status": "VERIFIED_LOCKED",
                     "has_merge_history": False,
                     "encoded_count": 1
                 }
                 masterlist.append(new_rec)
                 
-                review_item = workflow_mgr.add_to_queue(candidate, [{"master_id": new_id, "master_record": new_rec, "confidence_pct": score_pct, "tier": "Low Match (New Profile)", "badge_color": "#EF4444"}], "NEW_DOCTOR_VERIFICATION")
-                
-                action_taken = "NEW_DOCTOR_QUEUED_FOR_VERIFICATION"
-                msg = f"New Doctor Profile Created ({new_id}). Queued for Managerial Verification ({review_item['review_id']}) to commit to Master Dictionary."
+                # Directly commit to Master Dictionary (DICT-500X)
+                dict_id = f"DICT-500{len(dictionary_mgr.get_all()) + 1}"
+                new_dict_entry = {
+                    "dict_id": dict_id,
+                    "hcp_id": new_id,
+                    "canonical_name": f"{fn} {mn} {ln}".upper(),
+                    "official_name": full_name,
+                    "primary_specialty": candidate.get("specialty", ""),
+                    "primary_hospital": candidate.get("hospital", ""),
+                    "city": candidate.get("city", ""),
+                    "province": candidate.get("province", ""),
+                    "official_contact": candidate.get("contact", ""),
+                    "email": candidate.get("email", ""),
+                    "account_program": candidate.get("account_program", ""),
+                    "signature_png": candidate.get("signature_png", ""),
+                    "signature_status": "LOCKED_TRUE_ONLY_ONE",
+                    "dictionary_notes": f"100% Verified New Doctor Profile & True-Only-One Signature committed automatically on {datetime.now().strftime('%Y-%m-%d')}."
+                }
+                dictionary_mgr.dictionary_db.append(new_dict_entry)
+
+                action_taken = "NEW_DOCTOR_AUTO_VERIFIED"
+                msg = f"New Doctor Profile Created & Directly Verified in Masterlist ({new_id}) and Master Dictionary ({dict_id})."
 
             self._send_json({
                 "status": "success",

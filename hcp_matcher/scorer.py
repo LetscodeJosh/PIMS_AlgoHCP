@@ -9,7 +9,7 @@ import re
 import base64
 import zlib
 from .normalizer import parse_erp_doctor_name, normalize_text, normalize_institution
-from .algorithms import jaro_winkler_distance, token_set_ratio
+from .algorithms import jaro_winkler_distance, token_set_ratio, soundex
 
 class HCPMatchScorer:
     """
@@ -58,12 +58,50 @@ class HCPMatchScorer:
         except Exception:
             return 0.0
 
+    def split_full_name_components(self, name_str: str) -> dict:
+        """
+        Clever name splitter that isolates First, Middle, and Last name components.
+        """
+        from .normalizer import strip_titles
+        cleaned = strip_titles(name_str)
+        words = cleaned.split()
+        if not words:
+            return {"first": "", "middle": "", "last": ""}
+        
+        prefixes = ["DE", "LA", "DELA", "DELOS", "SAN", "SANTA", "SANTO"]
+        last_parts = []
+        if len(words) >= 3 and words[-3] in prefixes and words[-2] in prefixes:
+            last_parts = words[-3:]
+            remaining = words[:-3]
+        elif len(words) >= 2 and words[-2] in prefixes:
+            last_parts = words[-2:]
+            remaining = words[:-2]
+        else:
+            last_parts = [words[-1]]
+            remaining = words[:-1]
+            
+        if not remaining:
+            if len(words) == 1:
+                return {"first": words[0], "middle": "", "last": ""}
+            else:
+                return {"first": words[0], "middle": "", "last": words[1]}
+                
+        if len(remaining) >= 2:
+            first = " ".join(remaining[:-1])
+            middle = remaining[-1]
+        else:
+            first = remaining[0]
+            middle = ""
+            
+        return {"first": first, "middle": middle, "last": " ".join(last_parts)}
+
     def calculate_name_score(self, cand_first: str, cand_mid: str, cand_last: str, mast_name: str) -> dict:
         """
-        Multi-signal component linkage for ERP Doctor Name fields.
+        Multi-signal component linkage for ERP Doctor Name fields with Jaro-Winkler + Soundex 4-character phonetic distance.
         """
         if not cand_first and not cand_last and cand_mid:
             cand_first, cand_last = cand_mid, ""
+            cand_mid = ""
 
         erp_name = parse_erp_doctor_name(cand_first, cand_mid, cand_last)
         cand_canonical = erp_name.canonical_name or normalize_text(cand_first + " " + cand_last)
@@ -72,31 +110,63 @@ class HCPMatchScorer:
         mast_canonical = mast_erp.canonical_name or normalize_text(mast_name)
 
         if not cand_canonical or not mast_canonical:
-            return {"score": 0.0, "jw": 0.0, "token_set": 0.0, "reason": "Empty name input"}
+            return {"score": 0.0, "jw": 0.0, "token_set": 0.0, "soundex": 0.0, "reason": "Empty name input"}
 
         if cand_canonical == mast_canonical:
-            return {"score": 1.0, "jw": 1.0, "token_set": 1.0, "reason": "Exact normalized canonical match"}
+            return {"score": 1.0, "jw": 1.0, "token_set": 1.0, "soundex": 1.0, "reason": "Exact normalized canonical match"}
 
         jw_score = jaro_winkler_distance(cand_canonical, mast_canonical)
         tok_set = token_set_ratio(cand_canonical, mast_canonical)
 
+        # Soundex 4-character phonetic distance calculation
+        cand_words = [w for w in cand_canonical.split() if len(w) > 1]
+        mast_words = [w for w in mast_canonical.split() if len(w) > 1]
+        cand_sx_set = set(soundex(w) for w in cand_words if soundex(w))
+        mast_sx_set = set(soundex(w) for w in mast_words if soundex(w))
+        
+        soundex_overlap = 0.0
+        if cand_sx_set and mast_sx_set:
+            sx_inter = cand_sx_set.intersection(mast_sx_set)
+            soundex_overlap = len(sx_inter) / max(1, min(len(cand_sx_set), len(mast_sx_set)))
+
         surname_score = 0.0
         if erp_name.last_name:
             surname_score = jaro_winkler_distance(erp_name.last_name, mast_canonical)
+            # Boost surname score if soundex matches
+            if soundex(erp_name.last_name) in mast_sx_set:
+                surname_score = max(surname_score, 0.85)
 
-        base_name_score = (jw_score * 0.40) + (tok_set * 0.40) + (surname_score * 0.20)
+        base_name_score = (jw_score * 0.35) + (tok_set * 0.35) + (surname_score * 0.15) + (soundex_overlap * 0.15)
+
+        cand_split = self.split_full_name_components(cand_canonical)
+        mast_split = self.split_full_name_components(mast_canonical)
+        
+        cand_mid_val = cand_mid.strip().upper() if cand_mid else cand_split["middle"].strip().upper()
+        mast_mid_val = mast_split["middle"].strip().upper()
+        
+        if cand_mid_val and mast_mid_val:
+            c_mid_clean = re.sub(r'[^A-Z]', '', cand_mid_val)
+            m_mid_clean = re.sub(r'[^A-Z]', '', mast_mid_val)
+            if c_mid_clean and m_mid_clean:
+                if len(c_mid_clean) > 1 and len(m_mid_clean) > 1:
+                    if c_mid_clean != m_mid_clean:
+                        base_name_score = base_name_score * 0.1
+                else:
+                    if c_mid_clean[0] != m_mid_clean[0]:
+                        base_name_score = base_name_score * 0.1
 
         cand_tokens = set(cand_canonical.split())
         mast_tokens = set(mast_canonical.split())
-        if not cand_tokens.intersection(mast_tokens) and jw_score < 0.65:
+        if not cand_tokens.intersection(mast_tokens) and not soundex_overlap and jw_score < 0.65:
             base_name_score = 0.0
-        elif base_name_score < 0.55:
+        elif base_name_score < 0.45:
             base_name_score = 0.0
 
         return {
-            "score": round(base_name_score, 4),
+            "score": round(min(1.0, base_name_score), 4),
             "jw": round(jw_score, 4),
             "token_set": round(tok_set, 4),
+            "soundex": round(soundex_overlap, 4),
             "canonical1": cand_canonical,
             "canonical2": mast_canonical
         }
@@ -138,6 +208,12 @@ class HCPMatchScorer:
         cand_mn = candidate.get("middle_name", "")
         cand_ln = candidate.get("last_name", "")
         cand_full = candidate.get("name") or f"{cand_fn} {cand_mn} {cand_ln}".strip()
+
+        if not cand_fn and not cand_ln and cand_full:
+            parsed = self.split_full_name_components(cand_full)
+            cand_fn = parsed["first"]
+            cand_mn = parsed["middle"]
+            cand_ln = parsed["last"]
 
         field_scores = {}
         field_weights = {}
@@ -263,6 +339,10 @@ class HCPMatchScorer:
             confidence_pct = min(confidence_pct, 25.0)
         else:
             confidence_pct = round(prob_ml * 100, 1)
+
+        # Boost confidence score if the name is an exact or near-exact canonical match (>= 95% name score)
+        if name_res["score"] >= 0.95:
+            confidence_pct = max(confidence_pct, 95.0)
 
         if confidence_pct >= 88.0:
             tier = "High Match (Fast-Track Merge)"

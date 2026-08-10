@@ -12,6 +12,8 @@ let dictionaryData = [];
 let masterlistData = [];
 let mergeHistoryData = [];
 let autoDetectDebounceTimer = null;
+let lastAutoFilledMasterId = null;
+let isAutoFilling = false;
 
 let sigCanvas, sigCtx;
 let isDrawing = false;
@@ -383,6 +385,7 @@ function triggerAutoDetect() {
 }
 
 async function runAutoDetectScan() {
+  if (isAutoFilling) return;
   const candidate = getMedRepInput();
   const bannerTitle = document.getElementById("banner-title");
   const bannerDesc = document.getElementById("banner-desc");
@@ -392,6 +395,7 @@ async function runAutoDetectScan() {
     bannerTitle.textContent = "Version 2.0 Name-First Intelligent Pre-Detection Engine Active";
     bannerDesc.textContent = "Start typing a Doctor Name to auto-identify doctor profile & encoding frequency...";
     bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">v2.0 Active</span>`;
+    lastAutoFilledMasterId = null;
     return;
   }
 
@@ -409,25 +413,65 @@ async function runAutoDetectScan() {
     if (data.status === "success" && data.matches.length > 0) {
       currentMatches = data.matches;
       const top = currentMatches[0];
-      const nameMatch = (nameData.matches && nameData.matches.length > 0) ? nameData.matches[0] : null;
-      const encCount = top.encoded_count || (nameMatch ? nameMatch.encoded_count : 1);
 
-      const sigBadge = top.is_sig_locked
-        ? `<span class="badge" style="background:rgba(239,68,68,0.25); color:#EF4444; margin-left:0.3rem;">🔒 Signature Locked (Immutable - Level 2 Approved)</span>`
-        : `<span class="badge" style="background:rgba(16,185,129,0.25); color:#10B981; margin-left:0.3rem;">✍️ Signature Vector: ${top.sig_similarity_pct || 0}%</span>`;
+      if (top.confidence_pct >= 50.0) {
+        bannerTitle.innerHTML = `👤 Match Detected: <strong>${top.confidence_pct}% Confidence</strong> with <u>${top.master_record.name}</u>`;
+        bannerDesc.textContent = `Affiliations: ${top.master_record.hospital || 'Primary Workplace'} | ${top.master_record.specialty || 'Specialty'}`;
+        bannerBadge.innerHTML = `
+          <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
+            ${top.tier}
+          </span>
+        `;
+      } else {
+        bannerTitle.innerHTML = `✨ <strong>New Doctor Candidate Detected</strong>`;
+        bannerDesc.textContent = `No existing profile matches found in Masterlist. Saving will directly verify and commit this record.`;
+        bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981; border:1px solid #10B981">Verified New Record</span>`;
+      }
 
-      bannerTitle.innerHTML = `👤 Name-First Auto-Detection: <strong>${top.confidence_pct}% Match</strong> with <u>${top.master_record.name}</u> <span class="badge" style="background:rgba(245,158,11,0.25); color:#F59E0B">🔥 Encoded ${encCount}x</span> ${sigBadge}`;
-      bannerDesc.textContent = `Master ID: ${top.master_id} | ${top.master_record.hospital} | ${top.master_record.specialty} | Name Linkage: ${nameMatch ? nameMatch.name_score_pct : 0}%`;
+      // Auto-fill names if name similarity score is high (>= 70%) and candidate typed name length >= 4
+      if (top.breakdown && top.breakdown.name && top.breakdown.name.score >= 0.70 && candidate.name.trim().length >= 4) {
+        const masterRec = top.master_record;
+        if (lastAutoFilledMasterId !== masterRec.id) {
+          isAutoFilling = true;
+          
+          const fnField = document.getElementById("input-doc-fn");
+          const mnField = document.getElementById("input-doc-mn");
+          const lnField = document.getElementById("input-doc-ln");
+          const nameSearchField = document.getElementById("input-doc-name");
 
-      bannerBadge.innerHTML = `
-        <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
-          ${top.tier}
-        </span>
-      `;
+          if (fnField) fnField.value = masterRec.first_name || "";
+          if (mnField) mnField.value = masterRec.middle_name || "";
+          if (lnField) lnField.value = masterRec.last_name || "";
+          if (nameSearchField) nameSearchField.value = masterRec.name || "";
+
+          lastAutoFilledMasterId = masterRec.id;
+
+          showAutoFillNotification(masterRec.name, masterRec.specialty, masterRec.hospital);
+
+          // Flash auto-filled fields to alert MedRep
+          [fnField, mnField, lnField, nameSearchField].forEach(f => {
+            if (f) {
+              f.style.transition = "background-color 0.5s ease, border-color 0.5s ease";
+              f.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
+              f.style.borderColor = "#10B981";
+              setTimeout(() => {
+                f.style.backgroundColor = "";
+                f.style.borderColor = "";
+              }, 2500);
+            }
+          });
+
+          isAutoFilling = false;
+          triggerAutoDetect();
+        }
+      } else if (!top.breakdown || !top.breakdown.name || top.breakdown.name.score < 0.70) {
+        lastAutoFilledMasterId = null;
+      }
     } else {
-      bannerTitle.textContent = "Version 2.0 Name-First Pre-Detection Active";
-      bannerDesc.textContent = "No master matches found yet. New doctor profile will be queued for Manager Verification.";
-      bannerBadge.innerHTML = `<span class="badge" style="background:rgba(239, 68, 68, 0.2); color:#EF4444">New Doctor Candidate</span>`;
+      bannerTitle.innerHTML = `✨ <strong>New Doctor Candidate Detected</strong>`;
+      bannerDesc.textContent = `No existing profile matches found in Masterlist. Saving will directly verify and commit this record.`;
+      bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981; border:1px solid #10B981">Verified New Record</span>`;
+      lastAutoFilledMasterId = null;
     }
   } catch (e) {
     console.error("Auto detect scan error:", e);
@@ -956,18 +1000,76 @@ function closeWarningModal() {
 }
 
 function resetFormInput() {
-  document.getElementById("input-doc-name").value = "";
-  document.getElementById("input-doc-spec").value = "";
-  document.getElementById("input-doc-hosp").value = "";
-  document.getElementById("input-doc-sec-hosp").value = "";
-  document.getElementById("input-doc-address").value = "";
-  document.getElementById("input-doc-city").value = "";
-  document.getElementById("input-doc-contact").value = "";
-  document.getElementById("input-doc-email").value = "";
+  // Clear name fields (null-safe)
+  const nameField = document.getElementById("input-doc-name");
+  if (nameField) nameField.value = "";
+  const fnField = document.getElementById("input-doc-fn");
+  if (fnField) fnField.value = "";
+  const mnField = document.getElementById("input-doc-mn");
+  if (mnField) mnField.value = "";
+  const lnField = document.getElementById("input-doc-ln");
+  if (lnField) lnField.value = "";
+  const dobField = document.getElementById("input-doc-dob");
+  if (dobField) dobField.value = "";
+
+  // Clear dynamic specialization rows and re-add empty one
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  if (specTbody) specTbody.innerHTML = "";
+  if (typeof addSpecializationRow === "function") addSpecializationRow();
+
+  // Clear dynamic workplace rows and re-add empty one
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (workTbody) workTbody.innerHTML = "";
+  if (typeof addWorkplaceRow === "function") addWorkplaceRow();
+
+  // Clear ERP metadata fields (null-safe)
+  const territoryField = document.getElementById("input-erp-territory");
+  if (territoryField) territoryField.value = "";
+  const medrepEmailField = document.getElementById("input-erp-medrep-email");
+  if (medrepEmailField) medrepEmailField.value = "";
+  const accountField = document.getElementById("input-erp-account-program");
+  if (accountField) accountField.value = "";
+  const consentField = document.getElementById("chk-erp-consent");
+  if (consentField) consentField.checked = false;
+
+  // Clear signature pad
   clearSignaturePad();
   
+  // Reset all auto-detect field borders
   document.querySelectorAll(".auto-detect-field").forEach(inp => inp.style.borderColor = "");
+  lastAutoFilledMasterId = null;
   triggerAutoDetect();
+}
+
+function showAutoFillNotification(doctorName, specialty, hospital) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast-card";
+  toast.style.borderLeft = "4px solid #10B981";
+  toast.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+      <strong style="color:#10B981; font-size:0.85rem; text-transform:uppercase;">⚡ Profile Auto-Filled</strong>
+      <span style="font-size:0.75rem; color:var(--text-muted);">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF;">${doctorName}</div>
+    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem;">
+      ${specialty || "General Medicine"} | ${hospital || "Primary Hospital"}
+    </div>
+    <div style="font-size:0.78rem; color:#f8fafc; background:rgba(16,185,129,0.15); padding:0.3rem 0.5rem; border-radius:4px;">
+      ⚠️ Similar doctor profile detected. Name fields auto-filled to prevent duplicate creation.
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("hide");
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 4500);
 }
 
 // FLOATING AUTO-DISMISSING SUBMISSION TOAST NOTIFICATION
@@ -1398,21 +1500,21 @@ function renderReviews(reviews) {
 
           <div style="display:flex; gap:0.4rem">
             ${rev.assigned_level < 2 ? `
-              <button class="btn btn-warning" style="font-size:0.78rem;" onclick="escalateReview('${rev.review_id}')">
-                ⬆️ Pass to Higher Position
+              <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
+                ❌ Failed
               </button>
-            ` : ''}
-            
-            ${isNewDoctorVerification ? `
-              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'VERIFY_AND_LOCK_CANONICAL', '${mast.id}')">
-                🔒 Confirm 100% Legit Doctor Info & Commit to Masterlist
+              <button class="btn btn-warning" style="font-size:0.78rem;" onclick="escalateReview('${rev.review_id}')">
+                ➡️ Pass to DSM/GM
+              </button>
+              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', '${isNewDoctorVerification ? 'VERIFY_AND_LOCK_CANONICAL' : 'MERGE_RECORD'}', '${mast.id}')">
+                ✅ Pass
               </button>
             ` : `
               <button class="btn btn-secondary" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'KEEP_SEPARATE', '${mast.id}')">
-                ❌ Keep Separate
+                ❌ Reject
               </button>
-              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', 'MERGE_RECORD', '${mast.id}')">
-                ✅ Higher Position Approve & Merge Master Record
+              <button class="btn btn-success" style="font-size:0.78rem;" onclick="resolveReview('${rev.review_id}', '${isNewDoctorVerification ? 'VERIFY_AND_LOCK_CANONICAL' : 'MERGE_RECORD'}', '${mast.id}')">
+                ✅ Approve
               </button>
             `}
           </div>
@@ -1544,6 +1646,13 @@ async function submitMedRepEntry() {
       body: JSON.stringify({ candidate })
     });
     const data = await res.json();
+
+    if (!res.ok || data.status === "error") {
+      // Server returned an error response — show failure toast
+      showErrorToast("Submission Failed", data.message || `Server returned HTTP ${res.status}. Please check all mandatory fields and try again.`);
+      return;
+    }
+
     if (data.status === "success") {
       showSubmissionToast(candidate, data.action_taken, data.message);
 
@@ -1559,8 +1668,35 @@ async function submitMedRepEntry() {
     }
   } catch (e) {
     console.error("Submission error:", e);
-    alert("Submission error: " + e.message);
+    showErrorToast("Submission Error", e.message || "An unexpected network or client error occurred. Please check your connection and try again.");
   }
+}
+
+function showErrorToast(title, reason) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast-card";
+  toast.style.borderLeft = "4px solid #EF4444";
+  toast.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+      <strong style="color:#EF4444; font-size:0.85rem; text-transform:uppercase;">❌ ${title}</strong>
+      <span style="font-size:0.75rem; color:var(--text-muted);">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div style="font-size:0.82rem; color:#f8fafc; background:rgba(239,68,68,0.12); padding:0.4rem 0.6rem; border-radius:4px;">
+      ${reason}
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("hide");
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 6000);
 }
 
 async function escalateReview(reviewId) {
