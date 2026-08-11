@@ -174,6 +174,7 @@ class HCPMatchScorer:
     def detect_name_match(self, candidate_name: str, master_records: list) -> list:
         """
         ERP Standalone Name-First Pre-Detection Engine.
+        Returns all matches with name score >= 40% for multi-match dropdown population.
         """
         if not candidate_name or len(candidate_name.strip()) < 2:
             return []
@@ -182,15 +183,32 @@ class HCPMatchScorer:
         for master in master_records:
             name_eval = self.calculate_name_score("", candidate_name, "", master.get("name", ""))
             score_pct = round(name_eval["score"] * 100, 1)
-            encoded_count = master.get("encoded_count", 1)
 
+            if score_pct < 40.0:
+                continue
+
+            encoded_count = master.get("encoded_count", 1)
             results.append({
                 "master_id": master.get("id"),
                 "master_name": master.get("name"),
+                "first_name": master.get("first_name", ""),
+                "middle_name": master.get("middle_name", ""),
+                "last_name": master.get("last_name", ""),
+                "birth_date": master.get("birth_date", "1980-05-15"),
                 "canonical_name": master.get("canonical_name"),
                 "specialty": master.get("specialty"),
+                "sub_specialty": master.get("sub_specialty", ""),
+                "hcp_type": master.get("hcp_type", "Consultant"),
+                "practice": master.get("practice", "Prescribing"),
                 "hospital": master.get("hospital"),
+                "secondary_hospital": master.get("secondary_hospital", ""),
                 "city": master.get("city"),
+                "province": master.get("province", ""),
+                "address": master.get("address", ""),
+                "contact": master.get("contact", ""),
+                "email": master.get("email", ""),
+                "specializations": master.get("specializations", []),
+                "workplaces": master.get("workplaces", []),
                 "name_score_pct": score_pct,
                 "encoded_count": encoded_count,
                 "signature_status": master.get("signature_status", "UNLOCKED"),
@@ -198,6 +216,62 @@ class HCPMatchScorer:
             })
 
         results.sort(key=lambda x: x["name_score_pct"], reverse=True)
+        return results
+
+    def detect_by_contact(self, candidate_contact: str, master_records: list) -> list:
+        """
+        Mobile Number Unique Identifier Engine.
+        Scans masterlist for an exact phone number match (last 7+ digits).
+        A matching phone number uniquely identifies a doctor.
+        """
+        if not candidate_contact:
+            return []
+
+        clean_input = re.sub(r'\D', '', str(candidate_contact))
+        if len(clean_input) < 7:
+            return []
+
+        results = []
+        for master in master_records:
+            mast_phone = master.get("contact", "")
+            if not mast_phone:
+                continue
+            clean_master = re.sub(r'\D', '', str(mast_phone))
+            if not clean_master:
+                continue
+
+            # Exact match or last-7-digit match (handles +63 vs 0 prefix differences)
+            is_exact = clean_input == clean_master
+            is_tail_match = len(clean_input) >= 7 and len(clean_master) >= 7 and clean_input[-7:] == clean_master[-7:]
+
+            if is_exact or is_tail_match:
+                results.append({
+                    "master_id": master.get("id"),
+                    "master_name": master.get("name"),
+                    "first_name": master.get("first_name", ""),
+                    "middle_name": master.get("middle_name", ""),
+                    "last_name": master.get("last_name", ""),
+                    "birth_date": master.get("birth_date", "1980-05-15"),
+                    "canonical_name": master.get("canonical_name"),
+                    "specialty": master.get("specialty"),
+                    "sub_specialty": master.get("sub_specialty", ""),
+                    "hcp_type": master.get("hcp_type", "Consultant"),
+                    "practice": master.get("practice", "Prescribing"),
+                    "hospital": master.get("hospital"),
+                    "secondary_hospital": master.get("secondary_hospital", ""),
+                    "city": master.get("city"),
+                    "province": master.get("province", ""),
+                    "address": master.get("address", ""),
+                    "contact": master.get("contact", ""),
+                    "email": master.get("email", ""),
+                    "specializations": master.get("specializations", []),
+                    "workplaces": master.get("workplaces", []),
+                    "encoded_count": master.get("encoded_count", 1),
+                    "signature_status": master.get("signature_status", "UNLOCKED"),
+                    "match_type": "EXACT_PHONE" if is_exact else "TAIL_7_MATCH",
+                    "confidence": 100.0
+                })
+
         return results
 
     def score_pair(self, candidate: dict, master_record: dict) -> dict:

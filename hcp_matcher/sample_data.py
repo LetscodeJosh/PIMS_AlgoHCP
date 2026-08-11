@@ -3,7 +3,7 @@ Sample Benchmark Dataset for Philippine HCP Masterlist & Verified Dictionary.
 Contains realistic name variations, hospital affiliations, and specialties.
 """
 
-SAMPLE_MASTERLIST = [
+BASE_MASTERLIST = [
     {
         "id": "HCP-1001",
         "name": "Dr. Joshua Mariano Tan, M.D., FPCP",
@@ -22,6 +22,7 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09171234567",
         "email": "dr.joshua.tan@stlukes.com.ph",
+        "birth_date": "1980-05-15",
         "account_program": "Abbott Cardiology Care",
         "territory_code": "TERR-NCR-SOUTH-01",
         "status": "VERIFIED_LOCKED",
@@ -70,6 +71,7 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09189876543",
         "email": "dra.claradelacruz@pgh.gov.ph",
+        "birth_date": "1982-11-20",
         "account_program": "Abbott Women's Health",
         "territory_code": "TERR-NCR-CENTRAL-02",
         "status": "VERIFIED_LOCKED",
@@ -118,6 +120,7 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09201112233",
         "email": "dr.antonio.santos@themedcity.com.ph",
+        "birth_date": "1978-03-10",
         "account_program": "Abbott Pediatric Care",
         "territory_code": "TERR-NCR-EAST-03",
         "status": "VERIFIED_LOCKED",
@@ -166,6 +169,7 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09175554433",
         "email": "dr.reyes@asianhospital.com",
+        "birth_date": "1975-08-25",
         "account_program": "Abbott Ortho Line",
         "territory_code": "TERR-NCR-SOUTH-04",
         "status": "VERIFIED_LOCKED",
@@ -214,6 +218,7 @@ SAMPLE_MASTERLIST = [
         "province": "Metro Manila",
         "contact": "09193332211",
         "email": "isabel.gonzales@csmc.ph",
+        "birth_date": "1984-01-14",
         "account_program": "Abbott Diabetes Care",
         "territory_code": "TERR-NCR-NORTH-05",
         "status": "VERIFIED_LOCKED",
@@ -242,8 +247,293 @@ SAMPLE_MASTERLIST = [
             }
         ],
         "contacts": ["09193332211"],
+        "emails": ["isabel.gonzales@csmc.ph"]
     }
 ]
+
+def _generate_expanded_masterlist():
+    records = [dict(r) for r in BASE_MASTERLIST]
+    current_id = 1006
+
+    middle_names_joshua_tan = [
+        "Mariano", "Reyes", "Alonzo", "Santos", "Aquino", "Castro", "Garcia", "Dela Cruz",
+        "Mendoza", "Ramos", "Flores", "Gonzales", "Bautista", "Villanueva", "Cruz", "Navarro",
+        "Mercado", "Salcedo", "Roxas", "Soriano", "Corpuz", "Pascual", "Castillo", "Morales",
+        "Valenzuela", "Rivera", "Guinto", "Tolentino", "Santiago", "Domingo"
+    ]  # 30 records
+
+    middle_names_joshua_chua = [
+        "Lim", "Sy", "Go", "Tan", "Co", "King", "Yap", "Ty", "Ang", "Dee",
+        "Cheng", "Uy", "Ong", "Chan", "Lee", "Ting", "Chiu", "Siy", "Yu", "Tiu",
+        "Tan-Co", "Sy-Lim", "Go-King", "Ang-Dee", "Yap-Ty"
+    ]  # 25 records
+
+    middle_names_maria_cruz = [
+        "Clara", "Isabel", "Teresa", "Sofia", "Luisa", "Elena", "Carmen", "Cristina",
+        "Angela", "Patricia", "Beatris", "Victoria", "Aurora", "Rosa", "Esperanza",
+        "Consuelo", "Dolores", "Mercedez", "Paloma", "Josefina", "Amalia", "Celia",
+        "Ines", "Pilar", "Felicia"
+    ]  # 25 records
+
+    middle_names_jose_santos = [
+        "Antonio", "Miguel", "Carlos", "Francisco", "Manuel", "Ramon", "Eduardo",
+        "Fernando", "Roberto", "Gabriel", "Rafael", "Pedro", "Mario", "Alejandro",
+        "Javier", "Luis", "Sergio", "Andres", "Diego", "Enrique"
+    ]  # 20 records
+
+    specialties_pool = [
+        ("Cardiology", "Interventional Cardiology"),
+        ("Pediatrics", "Pediatric Cardiology"),
+        ("Internal Medicine", "Endocrinology"),
+        ("Obstetrics & Gynecology", "Maternal & Fetal Medicine"),
+        ("Orthopedic Surgery", "Spine Surgery"),
+        ("Neurology", "Stroke Medicine"),
+        ("Gastroenterology", "Hepatology"),
+        ("Dermatology", "Cosmetic Dermatology"),
+        ("Nephrology", "Transplant Nephrology"),
+        ("Pulmonology", "Critical Care Medicine")
+    ]
+
+    hospitals_pool = [
+        ("St. Luke's Medical Center - Global City", "St. Luke's Medical Center - Quezon City", "Taguig City", "Metro Manila", "32nd St, Bonifacio Global City"),
+        ("The Medical City - Pasig", "TMC Ortigas Clinic", "Pasig City", "Metro Manila", "Ortigas Avenue"),
+        ("Makati Medical Center", "Makati Med Annex Clinic", "Makati City", "Metro Manila", "Amorsolo St, Legazpi Village"),
+        ("Philippine General Hospital", "PGH Faculty Medical Arts Building", "Manila", "Metro Manila", "Taft Avenue, Ermita"),
+        ("Asian Hospital and Medical Center", "Alabang Medical Clinic", "Muntinlupa City", "Metro Manila", "2205 Civic Drive, Filinvest City"),
+        ("Cardinal Santos Medical Center", "Greenhills Specialty Clinic", "San Juan City", "Metro Manila", "10 Wilson St, Greenhills"),
+        ("UST Hospital", "UST Doctors Clinic", "Manila", "Metro Manila", "Espana Blvd, Sampaloc"),
+        ("Chong Hua Hospital", "Chong Hua Mandaue Annex", "Cebu City", "Cebu", "Don Mariano Cui St, Fuente Osmena"),
+        ("Davao Medical School Foundation Hospital", "DMSF Specialty Center", "Davao City", "Davao del Sur", "Medical School Drive, Bajada"),
+        ("Capitol Medical Center", "Capitol Annex Clinic", "Quezon City", "Metro Manila", "Scout Magbanua St, Diliman")
+    ]
+
+    # 1. 30 "Joshua Tan"s with different middle names
+    for idx, mn in enumerate(middle_names_joshua_tan):
+        spec_pair = specialties_pool[idx % len(specialties_pool)]
+        hosp_tuple = hospitals_pool[idx % len(hospitals_pool)]
+        contact_num = f"0917123{current_id:04d}"
+        email_addr = f"dr.joshua.{mn.lower().replace(' ', '')}.tan@stlukes.com.ph"
+        birth_year = 1975 + (idx % 15)
+        dob = f"{birth_year}-{(idx % 12) + 1:02d}-{(idx % 28) + 1:02d}"
+
+        records.append({
+            "id": f"HCP-{current_id}",
+            "name": f"Dr. Joshua {mn} Tan, M.D., FPCP",
+            "first_name": "Joshua",
+            "middle_name": mn,
+            "last_name": "Tan",
+            "canonical_name": f"JOSHUA {mn.upper()} TAN",
+            "specialty": spec_pair[0],
+            "sub_specialty": spec_pair[1],
+            "hcp_type": "Consultant",
+            "practice": "Prescribing",
+            "hospital": hosp_tuple[0],
+            "secondary_hospital": hosp_tuple[1],
+            "address": hosp_tuple[4],
+            "city": hosp_tuple[2],
+            "province": hosp_tuple[3],
+            "contact": contact_num,
+            "email": email_addr,
+            "birth_date": dob,
+            "account_program": "Abbott Cardiology Care",
+            "territory_code": f"TERR-NCR-SOUTH-{(idx % 5) + 1:02d}",
+            "status": "VERIFIED_LOCKED",
+            "signature_status": "LOCKED_TRUE_ONLY_ONE",
+            "has_merge_history": False,
+            "encoded_count": 1,
+            "specializations": [{
+                "specialty": spec_pair[0],
+                "sub_specialty": spec_pair[1],
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "workplaces": [{
+                "hospital": hosp_tuple[0],
+                "secondary_hospital": hosp_tuple[1],
+                "city": hosp_tuple[2],
+                "province": hosp_tuple[3],
+                "address": hosp_tuple[4],
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "contacts": [contact_num],
+            "emails": [email_addr]
+        })
+        current_id += 1
+
+    # 2. 25 "Joshua Chua"s with different middle names
+    for idx, mn in enumerate(middle_names_joshua_chua):
+        spec_pair = specialties_pool[(idx + 2) % len(specialties_pool)]
+        hosp_tuple = hospitals_pool[(idx + 2) % len(hospitals_pool)]
+        contact_num = f"0918234{current_id:04d}"
+        email_addr = f"dr.joshua.{mn.lower().replace(' ', '').replace('-', '')}.chua@themedcity.com.ph"
+        birth_year = 1978 + (idx % 12)
+        dob = f"{birth_year}-{(idx % 12) + 1:02d}-{(idx % 28) + 1:02d}"
+
+        records.append({
+            "id": f"HCP-{current_id}",
+            "name": f"Dr. Joshua {mn} Chua, M.D.",
+            "first_name": "Joshua",
+            "middle_name": mn,
+            "last_name": "Chua",
+            "canonical_name": f"JOSHUA {mn.upper().replace('-', ' ')} CHUA",
+            "specialty": spec_pair[0],
+            "sub_specialty": spec_pair[1],
+            "hcp_type": "Consultant",
+            "practice": "Prescribing",
+            "hospital": hosp_tuple[0],
+            "secondary_hospital": hosp_tuple[1],
+            "address": hosp_tuple[4],
+            "city": hosp_tuple[2],
+            "province": hosp_tuple[3],
+            "contact": contact_num,
+            "email": email_addr,
+            "birth_date": dob,
+            "account_program": "Abbott Primary Care",
+            "territory_code": f"TERR-NCR-EAST-{(idx % 5) + 1:02d}",
+            "status": "VERIFIED_LOCKED",
+            "signature_status": "LOCKED_TRUE_ONLY_ONE",
+            "has_merge_history": False,
+            "encoded_count": 1,
+            "specializations": [{
+                "specialty": spec_pair[0],
+                "sub_specialty": spec_pair[1],
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "workplaces": [{
+                "hospital": hosp_tuple[0],
+                "secondary_hospital": hosp_tuple[1],
+                "city": hosp_tuple[2],
+                "province": hosp_tuple[3],
+                "address": hosp_tuple[4],
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "contacts": [contact_num],
+            "emails": [email_addr]
+        })
+        current_id += 1
+
+    # 3. 25 "Maria Dela Cruz"s with different middle names
+    for idx, mn in enumerate(middle_names_maria_cruz):
+        spec_pair = specialties_pool[(idx + 4) % len(specialties_pool)]
+        hosp_tuple = hospitals_pool[(idx + 4) % len(hospitals_pool)]
+        contact_num = f"0919345{current_id:04d}"
+        email_addr = f"dra.maria.{mn.lower()}.cruz@pgh.gov.ph"
+        birth_year = 1980 + (idx % 10)
+        dob = f"{birth_year}-{(idx % 12) + 1:02d}-{(idx % 28) + 1:02d}"
+
+        records.append({
+            "id": f"HCP-{current_id}",
+            "name": f"Dra. Maria {mn} Dela Cruz, FPOGS",
+            "first_name": "Maria",
+            "middle_name": mn,
+            "last_name": "Dela Cruz",
+            "canonical_name": f"MARIA {mn.upper()} DE LA CRUZ",
+            "specialty": spec_pair[0],
+            "sub_specialty": spec_pair[1],
+            "hcp_type": "Consultant",
+            "practice": "Prescribing",
+            "hospital": hosp_tuple[0],
+            "secondary_hospital": hosp_tuple[1],
+            "address": hosp_tuple[4],
+            "city": hosp_tuple[2],
+            "province": hosp_tuple[3],
+            "contact": contact_num,
+            "email": email_addr,
+            "birth_date": dob,
+            "account_program": "Abbott Women's Health",
+            "territory_code": f"TERR-NCR-CENTRAL-{(idx % 5) + 1:02d}",
+            "status": "VERIFIED_LOCKED",
+            "signature_status": "LOCKED_TRUE_ONLY_ONE",
+            "has_merge_history": False,
+            "encoded_count": 1,
+            "specializations": [{
+                "specialty": spec_pair[0],
+                "sub_specialty": spec_pair[1],
+                "type": "Consultant",
+                "practice": "Prescribing",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "workplaces": [{
+                "hospital": hosp_tuple[0],
+                "secondary_hospital": hosp_tuple[1],
+                "city": hosp_tuple[2],
+                "province": hosp_tuple[3],
+                "address": hosp_tuple[4],
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "contacts": [contact_num],
+            "emails": [email_addr]
+        })
+        current_id += 1
+
+    # 4. 20 "Jose Santos"s with different middle names
+    for idx, mn in enumerate(middle_names_jose_santos):
+        spec_pair = specialties_pool[(idx + 6) % len(specialties_pool)]
+        hosp_tuple = hospitals_pool[(idx + 6) % len(hospitals_pool)]
+        contact_num = f"0920456{current_id:04d}"
+        email_addr = f"dr.jose.{mn.lower()}.santos@asianhospital.com"
+        birth_year = 1976 + (idx % 14)
+        dob = f"{birth_year}-{(idx % 12) + 1:02d}-{(idx % 28) + 1:02d}"
+
+        records.append({
+            "id": f"HCP-{current_id}",
+            "name": f"Dr. Jose {mn} Santos, M.D.",
+            "first_name": "Jose",
+            "middle_name": mn,
+            "last_name": "Santos",
+            "canonical_name": f"JOSE {mn.upper()} SANTOS",
+            "specialty": spec_pair[0],
+            "sub_specialty": spec_pair[1],
+            "hcp_type": "Consultant",
+            "practice": "Both",
+            "hospital": hosp_tuple[0],
+            "secondary_hospital": hosp_tuple[1],
+            "address": hosp_tuple[4],
+            "city": hosp_tuple[2],
+            "province": hosp_tuple[3],
+            "contact": contact_num,
+            "email": email_addr,
+            "birth_date": dob,
+            "account_program": "Abbott Pediatric Care",
+            "territory_code": f"TERR-NCR-NORTH-{(idx % 5) + 1:02d}",
+            "status": "VERIFIED_LOCKED",
+            "signature_status": "LOCKED_TRUE_ONLY_ONE",
+            "has_merge_history": False,
+            "encoded_count": 1,
+            "specializations": [{
+                "specialty": spec_pair[0],
+                "sub_specialty": spec_pair[1],
+                "type": "Consultant",
+                "practice": "Both",
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "workplaces": [{
+                "hospital": hosp_tuple[0],
+                "secondary_hospital": hosp_tuple[1],
+                "city": hosp_tuple[2],
+                "province": hosp_tuple[3],
+                "address": hosp_tuple[4],
+                "added_at": "2026-08-01 09:00:00",
+                "added_by": "System Masterlist Baseline"
+            }],
+            "contacts": [contact_num],
+            "emails": [email_addr]
+        })
+        current_id += 1
+
+    return records
+
+SAMPLE_MASTERLIST = _generate_expanded_masterlist()
 
 SAMPLE_DICTIONARY = [
     {

@@ -220,6 +220,11 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             name_matches = scorer.detect_name_match(name_query, masterlist)
             self._send_json({"status": "success", "name_query": name_query, "matches": name_matches})
 
+        elif path == "/api/detect-contact":
+            contact_query = query.get("contact", [""])[0]
+            contact_matches = scorer.detect_by_contact(contact_query, masterlist)
+            self._send_json({"status": "success", "contact_query": contact_query, "matches": contact_matches})
+
         elif path == "/api/token":
             token = security_shield.generate_api_token("medrep_user_1", "MEDREP")
             self._send_json({"status": "success", "token": token})
@@ -294,6 +299,11 @@ class AlgoHCPRequestHandler(http.server.SimpleHTTPRequestHandler):
             name_query = payload.get("name", "")
             name_matches = scorer.detect_name_match(name_query, masterlist)
             self._send_json({"status": "success", "name_query": name_query, "matches": name_matches})
+
+        elif path == "/api/detect-contact":
+            contact_query = payload.get("contact", "")
+            contact_matches = scorer.detect_by_contact(contact_query, masterlist)
+            self._send_json({"status": "success", "contact_query": contact_query, "matches": contact_matches})
 
         elif path == "/api/match":
             candidate = payload.get("candidate", {})

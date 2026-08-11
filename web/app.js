@@ -70,6 +70,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  const docNameInput = document.getElementById("input-doc-name");
+  if (docNameInput) {
+    docNameInput.addEventListener("input", (e) => {
+      const val = e.target.value;
+      if (!val || val.trim().length === 0) {
+        clearAutoFilledFields();
+        const dropContainer = document.getElementById("name-dropdown-container");
+        if (dropContainer) dropContainer.innerHTML = "";
+      } else if (lastAutoFilledMasterId === null) {
+        // Automatically populate First Name, Middle Name, and Last Name fields for new doctor candidate
+        const parsed = parseFullNameToComponents(val);
+        const fnField = document.getElementById("input-doc-fn");
+        const mnField = document.getElementById("input-doc-mn");
+        const lnField = document.getElementById("input-doc-ln");
+        if (fnField) fnField.value = parsed.first_name;
+        if (mnField) mnField.value = parsed.middle_name;
+        if (lnField) lnField.value = parsed.last_name;
+      }
+    });
+  }
+
   const checkBtn = document.getElementById("btn-check-recognizer");
   if (checkBtn) checkBtn.addEventListener("click", runRecognizerCheck);
 
@@ -390,19 +411,142 @@ async function runAutoDetectScan() {
   const bannerTitle = document.getElementById("banner-title");
   const bannerDesc = document.getElementById("banner-desc");
   const bannerBadge = document.getElementById("banner-badge");
+  const dropdownContainer = document.getElementById("name-dropdown-container");
 
+  // ── Contact Number Unique Identifier Check ──
+  if (candidate.contact && candidate.contact.replace(/\D/g, '').length >= 7) {
+    try {
+      const contactRes = await fetch(`${API_BASE}/detect-contact?contact=${encodeURIComponent(candidate.contact)}`);
+      const contactData = await contactRes.json();
+      if (contactData.status === "success" && contactData.matches && contactData.matches.length > 0) {
+        const phoneMatch = contactData.matches[0];
+        if (lastAutoFilledMasterId !== phoneMatch.master_id) {
+          autoFillFromRecord(phoneMatch);
+          bannerTitle.innerHTML = `📱 Phone Match: <strong>100% Identified</strong> — <u>${phoneMatch.master_name}</u>`;
+          bannerDesc.textContent = `Mobile ${phoneMatch.contact} uniquely identifies this doctor. All fields auto-filled.`;
+          bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16,185,129,0.2); color:#10B981; border:1px solid #10B981">Phone Verified</span>`;
+          showAutoFillNotification(phoneMatch.master_name, phoneMatch.specialty, phoneMatch.hospital);
+          if (dropdownContainer) dropdownContainer.innerHTML = "";
+          return;
+        }
+      }
+    } catch (e) { console.error("Contact detect error:", e); }
+  }
+
+function parseFullNameToComponents(rawName) {
+  if (!rawName) return { first_name: "", middle_name: "", last_name: "" };
+
+  // Clean common titles, honorifics, and suffixes
+  let cleaned = rawName
+    .replace(/\b(Dr|Dra|Doctor|MD|M\.D\.|FPCP|FPOGS|FPOA|FPPS|FACP|PhD|Jr|Sr|II|III|IV)\b\.?/gi, "")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return { first_name: "", middle_name: "", last_name: "" };
+
+  const tokens = cleaned.split(" ");
+  if (tokens.length === 1) {
+    return { first_name: tokens[0], middle_name: "", last_name: "" };
+  }
+  if (tokens.length === 2) {
+    return { first_name: tokens[0], middle_name: "", last_name: tokens[1] };
+  }
+
+  // --- Detect compound surname start index ---
+  // Handle Philippine compound surnames (e.g., Dela Cruz, De La Cruz, De Los Reyes, Santa Maria)
+  const lowerTokens = tokens.map(t => t.toLowerCase());
+  let surnameStartIndex = tokens.length - 1;
+
+  // Check for 3-word compound surnames: "De La Cruz", "De Los Reyes"
+  if (tokens.length >= 4) {
+    const p1 = lowerTokens[tokens.length - 3];
+    const p2 = lowerTokens[tokens.length - 2];
+    if ((p1 === "de" && p2 === "la") || (p1 === "de" && p2 === "los")) {
+      surnameStartIndex = tokens.length - 3;
+    }
+  }
+
+  // Check for 2-word compound surnames: "Dela Cruz", "San Juan", "Santa Maria"
+  if (surnameStartIndex === tokens.length - 1 && tokens.length >= 3) {
+    const p2 = lowerTokens[tokens.length - 2];
+    if (["dela", "delos", "de", "san", "santa", "santo"].includes(p2)) {
+      surnameStartIndex = tokens.length - 2;
+    }
+  }
+
+  // --- Detect middle initial ---
+  // A middle initial is a single letter (optionally followed by a period) positioned
+  // just before the surname. Examples: "C.", "C", "A.", "M"
+  // Pattern: "Allen Paul C. Miole" → first="Allen Paul", middle="C.", last="Miole"
+  // Pattern: "John Michael B De La Cruz" → first="John Michael", middle="B", last="De La Cruz"
+  const middleInitialIndex = surnameStartIndex - 1;
+  const isMiddleInitial = (token) => /^[A-Za-z]\.?$/.test(token);
+
+  let firstName, middleName, lastName;
+  lastName = tokens.slice(surnameStartIndex).join(" ");
+
+  if (middleInitialIndex >= 1 && isMiddleInitial(tokens[middleInitialIndex])) {
+    // Token just before surname is a middle initial
+    // Everything before that initial is the first name
+    firstName = tokens.slice(0, middleInitialIndex).join(" ");
+    middleName = tokens[middleInitialIndex];
+  } else {
+    // No middle initial detected — fall back to: first token = first name,
+    // tokens between first and surname = middle name
+    firstName = tokens[0];
+    middleName = tokens.slice(1, surnameStartIndex).join(" ");
+  }
+
+  return {
+    first_name: firstName,
+    middle_name: middleName,
+    last_name: lastName
+  };
+}
+window.parseFullNameToComponents = parseFullNameToComponents;
+
+function clearAutoFilledFields() {
+  const fnField = document.getElementById("input-doc-fn");
+  if (fnField) fnField.value = "";
+  const mnField = document.getElementById("input-doc-mn");
+  if (mnField) mnField.value = "";
+  const lnField = document.getElementById("input-doc-ln");
+  if (lnField) lnField.value = "";
+  const dobField = document.getElementById("input-doc-dob");
+  if (dobField) dobField.value = "";
+
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  if (specTbody) specTbody.innerHTML = "";
+  if (typeof addSpecializationRow === "function") addSpecializationRow();
+
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (workTbody) workTbody.innerHTML = "";
+  if (typeof addWorkplaceRow === "function") addWorkplaceRow();
+
+  if (typeof setFormFieldsLocked === "function") setFormFieldsLocked(false);
+  lastAutoFilledMasterId = null;
+}
+window.clearAutoFilledFields = clearAutoFilledFields;
+
+  // ── Name-First Detection ──
   if (!candidate.name || candidate.name.trim().length < 2) {
     bannerTitle.textContent = "Version 2.0 Name-First Intelligent Pre-Detection Engine Active";
     bannerDesc.textContent = "Start typing a Doctor Name to auto-identify doctor profile & encoding frequency...";
     bannerBadge.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted)">v2.0 Active</span>`;
-    lastAutoFilledMasterId = null;
+    
+    // Clear all auto-filled data and unlock fields for clean new entry
+    clearAutoFilledFields();
+
+    if (dropdownContainer) dropdownContainer.innerHTML = "";
     return;
   }
 
   try {
     const nameRes = await fetch(`${API_BASE}/detect-name?name=${encodeURIComponent(candidate.name)}`);
     const nameData = await nameRes.json();
-    
+    const nameMatches = (nameData.status === "success" && nameData.matches) ? nameData.matches : [];
+
     const res = await fetch(`${API_BASE}/match`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -414,60 +558,57 @@ async function runAutoDetectScan() {
       currentMatches = data.matches;
       const top = currentMatches[0];
 
-      if (top.confidence_pct >= 50.0) {
-        bannerTitle.innerHTML = `👤 Match Detected: <strong>${top.confidence_pct}% Confidence</strong> with <u>${top.master_record.name}</u>`;
-        bannerDesc.textContent = `Affiliations: ${top.master_record.hospital || 'Primary Workplace'} | ${top.master_record.specialty || 'Specialty'}`;
-        bannerBadge.innerHTML = `
-          <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
-            ${top.tier}
-          </span>
-        `;
-      } else {
-        bannerTitle.innerHTML = `✨ <strong>New Doctor Candidate Detected</strong>`;
-        bannerDesc.textContent = `No existing profile matches found in Masterlist. Saving will directly verify and commit this record.`;
-        bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981; border:1px solid #10B981">Verified New Record</span>`;
-      }
+      // Filter name matches with score >= 40% for dropdown
+      const similarNames = nameMatches.filter(m => m.name_score_pct >= 40.0);
 
-      // Auto-fill names if name similarity score is high (>= 70%) and candidate typed name length >= 4
-      if (top.breakdown && top.breakdown.name && top.breakdown.name.score >= 0.70 && candidate.name.trim().length >= 4) {
-        const masterRec = top.master_record;
-        if (lastAutoFilledMasterId !== masterRec.id) {
-          isAutoFilling = true;
-          
-          const fnField = document.getElementById("input-doc-fn");
-          const mnField = document.getElementById("input-doc-mn");
-          const lnField = document.getElementById("input-doc-ln");
-          const nameSearchField = document.getElementById("input-doc-name");
+      if (similarNames.length > 1 && candidate.name.trim().length >= 4) {
+        // ── MULTI-MATCH: Show dropdown for user selection ──
+        bannerTitle.innerHTML = `👥 <strong>${similarNames.length} Similar Doctors Found</strong> — Select the correct profile below`;
+        bannerDesc.textContent = `Multiple matches detected. Choose the right doctor from the dropdown to auto-fill.`;
+        bannerBadge.innerHTML = `<span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B; border:1px solid #F59E0B">Select Doctor</span>`;
 
-          if (fnField) fnField.value = masterRec.first_name || "";
-          if (mnField) mnField.value = masterRec.middle_name || "";
-          if (lnField) lnField.value = masterRec.last_name || "";
-          if (nameSearchField) nameSearchField.value = masterRec.name || "";
+        renderNameDropdown(similarNames);
 
-          lastAutoFilledMasterId = masterRec.id;
+      } else if (similarNames.length === 1 && similarNames[0].name_score_pct >= 70.0 && candidate.name.trim().length >= 4) {
+        // ── SINGLE HIGH MATCH: Auto-fill directly ──
+        if (dropdownContainer) dropdownContainer.innerHTML = "";
+        const matchRec = similarNames[0];
 
-          showAutoFillNotification(masterRec.name, masterRec.specialty, masterRec.hospital);
-
-          // Flash auto-filled fields to alert MedRep
-          [fnField, mnField, lnField, nameSearchField].forEach(f => {
-            if (f) {
-              f.style.transition = "background-color 0.5s ease, border-color 0.5s ease";
-              f.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
-              f.style.borderColor = "#10B981";
-              setTimeout(() => {
-                f.style.backgroundColor = "";
-                f.style.borderColor = "";
-              }, 2500);
-            }
-          });
-
-          isAutoFilling = false;
-          triggerAutoDetect();
+        if (top.confidence_pct >= 50.0) {
+          bannerTitle.innerHTML = `👤 Match Detected: <strong>${top.confidence_pct}% Confidence</strong> with <u>${top.master_record.name}</u>`;
+          bannerDesc.textContent = `Affiliations: ${top.master_record.hospital || 'Primary Workplace'} | ${top.master_record.specialty || 'Specialty'}`;
+          bannerBadge.innerHTML = `
+            <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
+              ${top.tier}
+            </span>
+          `;
         }
-      } else if (!top.breakdown || !top.breakdown.name || top.breakdown.name.score < 0.70) {
+
+        if (lastAutoFilledMasterId !== matchRec.master_id) {
+          autoFillFromRecord(matchRec);
+          showAutoFillNotification(matchRec.master_name, matchRec.specialty, matchRec.hospital);
+        }
+
+      } else {
+        // ── LOW/NO MATCH: New doctor ──
+        if (dropdownContainer) dropdownContainer.innerHTML = "";
+        if (top.confidence_pct >= 50.0) {
+          bannerTitle.innerHTML = `👤 Match Detected: <strong>${top.confidence_pct}% Confidence</strong> with <u>${top.master_record.name}</u>`;
+          bannerDesc.textContent = `Affiliations: ${top.master_record.hospital || 'Primary Workplace'} | ${top.master_record.specialty || 'Specialty'}`;
+          bannerBadge.innerHTML = `
+            <span class="badge" style="background:${top.badge_color}22; color:${top.badge_color}; border:1px solid ${top.badge_color}">
+              ${top.tier}
+            </span>
+          `;
+        } else {
+          bannerTitle.innerHTML = `✨ <strong>New Doctor Candidate Detected</strong>`;
+          bannerDesc.textContent = `No existing profile matches found in Masterlist. Saving will directly verify and commit this record.`;
+          bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981; border:1px solid #10B981">Verified New Record</span>`;
+        }
         lastAutoFilledMasterId = null;
       }
     } else {
+      if (dropdownContainer) dropdownContainer.innerHTML = "";
       bannerTitle.innerHTML = `✨ <strong>New Doctor Candidate Detected</strong>`;
       bannerDesc.textContent = `No existing profile matches found in Masterlist. Saving will directly verify and commit this record.`;
       bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10B981; border:1px solid #10B981">Verified New Record</span>`;
@@ -476,6 +617,157 @@ async function runAutoDetectScan() {
   } catch (e) {
     console.error("Auto detect scan error:", e);
   }
+}
+
+function renderNameDropdown(matches) {
+  const container = document.getElementById("name-dropdown-container");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="position:absolute; top:0; left:0; right:0; max-height:260px; overflow-y:auto; background:#0F172A; border:1px solid var(--primary); border-radius:0 0 var(--radius-sm) var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index:200;">
+      ${matches.map((m, i) => `
+        <div class="name-dropdown-item" onclick="selectDoctorFromDropdown(${i})"
+             style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.8rem; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.06); transition: background 0.15s ease;"
+             onmouseover="this.style.background='rgba(56,189,248,0.12)'" onmouseout="this.style.background='transparent'">
+          <div>
+            <div style="font-weight:600; font-size:0.85rem; color:#f8fafc;">${m.master_name}</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">
+              ${m.specialty || 'Specialty'} · ${m.hospital || 'Hospital'} · ${m.city || ''}
+            </div>
+          </div>
+          <div style="text-align:right; min-width:70px;">
+            <span class="badge" style="background:rgba(56,189,248,0.15); color:#38BDF8; font-size:0.7rem;">${m.name_score_pct}%</span>
+            <div style="font-size:0.65rem; color:var(--text-dim); margin-top:2px;">${m.master_id}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // Store matches in a global for selection handler
+  window._dropdownMatches = matches;
+}
+
+function selectDoctorFromDropdown(index) {
+  const matches = window._dropdownMatches;
+  if (!matches || !matches[index]) return;
+
+  const selected = matches[index];
+  autoFillFromRecord(selected);
+  showAutoFillNotification(selected.master_name, selected.specialty, selected.hospital);
+
+  // Update banner
+  const bannerTitle = document.getElementById("banner-title");
+  const bannerDesc = document.getElementById("banner-desc");
+  const bannerBadge = document.getElementById("banner-badge");
+  if (bannerTitle) bannerTitle.innerHTML = `👤 Selected: <strong>${selected.name_score_pct}% Match</strong> with <u>${selected.master_name}</u>`;
+  if (bannerDesc) bannerDesc.textContent = `Affiliations: ${selected.hospital || 'Hospital'} | ${selected.specialty || 'Specialty'}`;
+  if (bannerBadge) bannerBadge.innerHTML = `<span class="badge" style="background:rgba(16,185,129,0.2); color:#10B981; border:1px solid #10B981">Profile Selected</span>`;
+
+  // Close dropdown
+  const container = document.getElementById("name-dropdown-container");
+  if (container) container.innerHTML = "";
+}
+window.selectDoctorFromDropdown = selectDoctorFromDropdown;
+
+function setFormFieldsLocked(isLocked) {
+  // Only lock canonical personal identity fields (First Name, Middle Name, Last Name, Birth Date)
+  const baseIds = ["input-doc-fn", "input-doc-mn", "input-doc-ln", "input-doc-dob"];
+  baseIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.readOnly = isLocked;
+      el.style.backgroundColor = isLocked ? "rgba(15, 23, 42, 0.75)" : "";
+      el.style.color = isLocked ? "#94a3b8" : "";
+      el.style.cursor = isLocked ? "not-allowed" : "";
+      if (isLocked) {
+        el.setAttribute("title", "🔒 Canonical Doctor Name & Identity (Read-Only)");
+      } else {
+        el.removeAttribute("title");
+      }
+    }
+  });
+
+  // NOTE: SPECIALIZATION / TYPE / PRACTICE and WORKPLACES / LOCATIONS & CONTACT INFO
+  // REMAIN FULLY EDITABLE AT ALL TIMES so MedReps can add new hospital affiliations, clinic locations,
+  // contact numbers, emails, and sub-specialties over time to merge into the doctor's master profile!
+
+  // Ensure HCP Search input (`input-doc-name`) REMAINS EDITABLE AT ALL TIMES!
+  const nameSearch = document.getElementById("input-doc-name");
+  if (nameSearch) {
+    nameSearch.readOnly = false;
+    nameSearch.disabled = false;
+    nameSearch.style.backgroundColor = "";
+    nameSearch.style.color = "";
+    nameSearch.style.cursor = "";
+  }
+}
+window.setFormFieldsLocked = setFormFieldsLocked;
+
+function autoFillFromRecord(record) {
+  isAutoFilling = true;
+
+  const fnField = document.getElementById("input-doc-fn");
+  const mnField = document.getElementById("input-doc-mn");
+  const lnField = document.getElementById("input-doc-ln");
+  const dobField = document.getElementById("input-doc-dob");
+  const nameSearchField = document.getElementById("input-doc-name");
+
+  if (fnField) fnField.value = record.first_name || "";
+  if (mnField) mnField.value = record.middle_name || "";
+  if (lnField) lnField.value = record.last_name || "";
+  if (dobField) dobField.value = record.birth_date || "1980-05-15";
+  if (nameSearchField) nameSearchField.value = record.master_name || record.name || "";
+
+  // Populate Specializations dynamic table
+  const specTbody = document.getElementById("specialization-rows-tbody");
+  if (specTbody) {
+    specTbody.innerHTML = "";
+    if (record.specializations && record.specializations.length > 0) {
+      record.specializations.forEach(s => {
+        addSpecializationRow(s.specialty || "", s.sub_specialty || "", s.type || s.hcp_type || "Consultant", s.practice || "Prescribing");
+      });
+    } else if (record.specialty) {
+      addSpecializationRow(record.specialty, record.sub_specialty || "", record.hcp_type || "Consultant", record.practice || "Prescribing");
+    } else {
+      addSpecializationRow();
+    }
+  }
+
+  // Populate Workplaces dynamic table
+  const workTbody = document.getElementById("workplace-rows-tbody");
+  if (workTbody) {
+    workTbody.innerHTML = "";
+    if (record.workplaces && record.workplaces.length > 0) {
+      record.workplaces.forEach(w => {
+        addWorkplaceRow(w.hospital || "", w.secondary_hospital || "", w.city || "", w.province || "", w.address || "", w.contact || record.contact || "", w.email || record.email || "");
+      });
+    } else if (record.hospital || record.city) {
+      addWorkplaceRow(record.hospital || "", record.secondary_hospital || "", record.city || "", record.province || "", record.address || "", record.contact || "", record.email || "");
+    } else {
+      addWorkplaceRow();
+    }
+  }
+
+  lastAutoFilledMasterId = record.master_id || record.id;
+
+  // Lock auto-filled fields to prevent re-typing time (HCP Search stays editable)
+  setFormFieldsLocked(true);
+
+  // Flash auto-filled fields green to alert MedRep
+  document.querySelectorAll("#erp-step-2 input, #erp-step-2 select").forEach(f => {
+    if (f.id !== "input-doc-name") {
+      f.style.transition = "background-color 0.5s ease, border-color 0.5s ease";
+      f.style.backgroundColor = "rgba(16, 185, 129, 0.18)";
+      f.style.borderColor = "#10B981";
+      setTimeout(() => {
+        f.style.backgroundColor = "rgba(15, 23, 42, 0.75)";
+        f.style.borderColor = "";
+      }, 2000);
+    }
+  });
+
+  isAutoFilling = false;
 }
 
 function setupErpWizard() {
@@ -643,10 +935,10 @@ window.captureCameraSnapshot = captureCameraSnapshot;
 
   if (searchInput && fnInput && lnInput) {
     const handleNameSync = () => {
-      const parsed = parseInputDoctorName(searchInput.value);
-      fnInput.value = parsed.firstName;
-      if (mnInput) mnInput.value = parsed.middleName;
-      lnInput.value = parsed.lastName;
+      const parsed = parseFullNameToComponents(searchInput.value);
+      fnInput.value = parsed.first_name;
+      if (mnInput) mnInput.value = parsed.middle_name;
+      lnInput.value = parsed.last_name;
     };
 
     searchInput.addEventListener("input", handleNameSync);
@@ -911,24 +1203,8 @@ function getMedRepInput() {
   };
 }
 
-function loadErpPreset(fn, mn, ln, spec, hosp, city, prov, contact, email) {
-  if (document.getElementById("input-doc-fn")) document.getElementById("input-doc-fn").value = fn;
-  if (document.getElementById("input-doc-mn")) document.getElementById("input-doc-mn").value = mn;
-  if (document.getElementById("input-doc-ln")) document.getElementById("input-doc-ln").value = ln;
-  if (document.getElementById("input-doc-name")) document.getElementById("input-doc-name").value = `Dr. ${fn} ${ln}`;
 
-  const specTbody = document.getElementById("specialization-rows-tbody");
-  if (specTbody) specTbody.innerHTML = "";
-  addSpecializationRow(spec, "General Practice", "Consultant", "Prescribing");
 
-  const workTbody = document.getElementById("workplace-rows-tbody");
-  if (workTbody) workTbody.innerHTML = "";
-  addWorkplaceRow(hosp, "Annex Clinic", city, prov, "Main St, Downtown", contact, email);
-
-  switchErpStep('2');
-  triggerAutoDetect();
-}
-window.loadErpPreset = loadErpPreset;
 
 function validateMandatoryInput(candidate) {
   const missing = [];
@@ -1000,6 +1276,7 @@ function closeWarningModal() {
 }
 
 function resetFormInput() {
+  if (typeof setFormFieldsLocked === "function") setFormFieldsLocked(false);
   // Clear name fields (null-safe)
   const nameField = document.getElementById("input-doc-name");
   if (nameField) nameField.value = "";
@@ -1318,11 +1595,16 @@ function renderMasterlist(records) {
     const workBadge = works.length > 1 ? `<span class="badge" style="background:rgba(14,165,233,0.2); color:#38BDF8; margin-left:0.3rem;">+${works.length - 1} Workplace</span>` : '';
 
     const hasMerge = r.has_merge_history === true;
+    const profileBtnHtml = `
+      <button class="btn btn-primary" style="font-size:0.75rem; padding:0.3rem 0.6rem; margin-right:0.3rem;" onclick="openDoctorProfileModal('${r.id}')">
+        👤 View Profile (${specs.length} Specs, ${works.length} Workplaces)
+      </button>
+    `;
     const mergeBtnHtml = hasMerge ? `
       <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="openMergeSnapshotModal('${r.id}')">
-        👁️ View Merge Audit (Read-Only)
+        👁️ Audit History
       </button>
-    ` : `<span style="color:var(--text-dim); font-size:0.78rem;">N/A (No Merge History)</span>`;
+    ` : `<span style="color:var(--text-dim); font-size:0.75rem;">No Merges Yet</span>`;
 
     return `
       <tr>
@@ -1331,11 +1613,124 @@ function renderMasterlist(records) {
         <td><span class="badge" style="background:rgba(37, 99, 235, 0.2); color:var(--primary-light);">${r.specialty || 'General'}</span> ${specBadge}</td>
         <td><strong>${r.hospital || 'N/A'}</strong> ${workBadge}</td>
         <td>${r.city || 'N/A'}, ${r.province || ''}</td>
-        <td>${mergeBtnHtml}</td>
+        <td><div style="display:flex; align-items:center; gap:0.3rem;">${profileBtnHtml}${mergeBtnHtml}</div></td>
       </tr>
     `;
   }).join("");
 }
+
+function openDoctorProfileModal(masterId) {
+  const doctor = masterlistData.find(m => m.id === masterId);
+  if (!doctor) return;
+
+  const backdrop = document.getElementById("doctor-profile-modal-backdrop");
+  const title = document.getElementById("doctor-profile-modal-title");
+  const body = document.getElementById("doctor-profile-modal-body");
+  if (!backdrop || !body) return;
+
+  if (title) title.innerHTML = `👤 Master Profile: <u>${doctor.name}</u> (${doctor.id})`;
+
+  const specs = doctor.specializations || [{ specialty: doctor.specialty, sub_specialty: doctor.sub_specialty, type: doctor.hcp_type, practice: doctor.practice }];
+  const works = doctor.workplaces || [{ hospital: doctor.hospital, secondary_hospital: doctor.secondary_hospital, city: doctor.city, province: doctor.province, address: doctor.address }];
+  const contacts = doctor.contacts || [doctor.contact];
+  const emails = doctor.emails || [doctor.email];
+
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:1rem;">
+      <div style="background:rgba(15,23,42,0.8); padding:0.8rem; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.08);">
+        <div style="color:var(--text-dim); font-size:0.75rem; font-weight:600; text-transform:uppercase;">Doctor Personal Identity</div>
+        <div style="font-weight:700; font-size:0.95rem; color:#f8fafc; margin-top:0.2rem;">${doctor.name}</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">
+          First: <strong>${doctor.first_name || 'N/A'}</strong> | Middle: <strong>${doctor.middle_name || 'N/A'}</strong> | Last: <strong>${doctor.last_name || 'N/A'}</strong>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-dim); margin-top:0.2rem;">Birth Date: ${doctor.birth_date || '1980-05-15'}</div>
+        <div style="margin-top:0.5rem; display:flex; gap:0.4rem; align-items:center;">
+          <span class="badge" style="background:rgba(16,185,129,0.2); color:#10B981;">🔒 VERIFIED & IMMUTABLE</span>
+          <span class="badge" style="background:rgba(245,158,11,0.2); color:#F59E0B;">LOCKED_TRUE_ONLY_ONE</span>
+        </div>
+      </div>
+
+      <div style="background:rgba(15,23,42,0.8); padding:0.8rem; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.08);">
+        <div style="color:var(--text-dim); font-size:0.75rem; font-weight:600; text-transform:uppercase;">Contact & Communication Details</div>
+        <div style="font-size:0.82rem; color:#f8fafc; margin-top:0.4rem;">
+          📱 <strong>Mobile Numbers (${contacts.length}):</strong><br>
+          ${contacts.map(c => `<span style="color:#38BDF8; font-weight:600;">${c}</span>`).join(", ")}
+        </div>
+        <div style="font-size:0.82rem; color:#f8fafc; margin-top:0.6rem;">
+          ✉️ <strong>Email Addresses (${emails.length}):</strong><br>
+          ${emails.map(e => `<span style="color:#38BDF8;">${e}</span>`).join(", ")}
+        </div>
+      </div>
+    </div>
+
+    <!-- SPECIALIZATIONS TABLE -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-weight:700; font-size:0.85rem; color:var(--primary-light); margin-bottom:0.4rem;">
+        🩺 Specializations, Types & Practices (${specs.length})
+      </div>
+      <table class="table" style="font-size:0.78rem; width:100%;">
+        <thead>
+          <tr style="background:rgba(15,23,42,0.8);">
+            <th>Specialty</th>
+            <th>Sub-Specialty</th>
+            <th>Type</th>
+            <th>Practice</th>
+            <th>Added Info</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${specs.map(s => `
+            <tr>
+              <td><strong style="color:#f8fafc;">${s.specialty || doctor.specialty || 'General'}</strong></td>
+              <td>${s.sub_specialty || s.subspec || 'N/A'}</td>
+              <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38BDF8;">${s.type || s.hcp_type || 'Consultant'}</span></td>
+              <td><span class="badge" style="background:rgba(16,185,129,0.15); color:#10B981;">${s.practice || 'Prescribing'}</span></td>
+              <td><small style="color:var(--text-dim);">${s.added_at || 'System Baseline'}</small></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- WORKPLACES TABLE -->
+    <div>
+      <div style="font-weight:700; font-size:0.85rem; color:var(--primary-light); margin-bottom:0.4rem;">
+        🏥 Workplaces, Locations & Addresses (${works.length})
+      </div>
+      <table class="table" style="font-size:0.78rem; width:100%;">
+        <thead>
+          <tr style="background:rgba(15,23,42,0.8);">
+            <th>Primary Workplace</th>
+            <th>Secondary Clinic</th>
+            <th>City & Province</th>
+            <th>Street Address</th>
+            <th>Added Info</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${works.map(w => `
+            <tr>
+              <td><strong style="color:#f8fafc;">${w.hospital || doctor.hospital || 'N/A'}</strong></td>
+              <td>${w.secondary_hospital || 'N/A'}</td>
+              <td>${w.city || doctor.city || 'N/A'}, ${w.province || doctor.province || ''}</td>
+              <td>${w.address || doctor.address || 'N/A'}</td>
+              <td><small style="color:var(--text-dim);">${w.added_at || 'System Baseline'}</small></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  backdrop.classList.add("active");
+}
+window.openDoctorProfileModal = openDoctorProfileModal;
+
+function closeDoctorProfileModal() {
+  const backdrop = document.getElementById("doctor-profile-modal-backdrop");
+  if (backdrop) backdrop.classList.remove("active");
+}
+window.closeDoctorProfileModal = closeDoctorProfileModal;
 
 async function loadDictionary() {
   try {

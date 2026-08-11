@@ -80,7 +80,7 @@
         </div>
       </div>
 
-      <div class="grid-2">
+      <div style="max-width: 960px; margin: 0 auto;">
         
         <!-- PIMS ERP WIZARD CONTAINER -->
         <div class="card" style="background:#0F1D40; border:1px solid var(--border-glow); border-radius:var(--radius-md); padding:1.25rem;">
@@ -180,6 +180,7 @@
             <div class="form-group">
               <label style="font-size:0.8rem;">HCP Search <span style="color:#EF4444">*</span> (Search doctor by typing surname, firstname, or both)</label>
               <input type="text" id="input-doc-name" class="form-control auto-detect-field" placeholder="Search by typing surname or firstname..." value="">
+              <div id="name-dropdown-container" style="position:relative; width:100%; z-index:100;"></div>
               <small style="color:var(--text-dim); font-size:0.72rem;">If doctor is not found in masterlist, fill out details below to create new doctor candidate.</small>
             </div>
 
@@ -319,21 +320,6 @@
             </div>
           </div>
 
-        </div>
-
-        <!-- BENCHMARK PRESETS CARD -->
-        <div class="card">
-          <h3 style="margin-bottom: 0.75rem; font-size:1rem;">⚡ Quick Preset ERP Benchmark Tests</h3>
-          
-          <div style="display:flex; flex-direction:column; gap:0.4rem;">
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Santa Maria', 'Dela', 'Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Taguig City', 'Metro Manila', '09171234567', 'dr.cruz@stlukes.ph')">🟢 High Match (≥88% Auto-Merge Test)</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('St. Maria', 'Dela', 'Cruz', 'Cardiology', 'St. Lukes Hospital BGC', 'Taguig City', 'Metro Manila', '09171234567', 'dr.cruz@stlukes.ph')">🟡 50-50 Match (Manager Queue Test)</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Maria Victoria', 'Reyes', 'Santos', 'Internal Medicine', 'Makati Medical Center', 'Makati City', 'Metro Manila', '09201112233', 'v.santos@makatimed.ph')">Ma. vs Maria Honorific Shift</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Juan', 'De La', 'Cruz', 'Pediatrics', 'Philippine General Hospital', 'Manila', 'Metro Manila', '09189876543', 'juan.delacruz@pgh.gov.ph')">Dela vs De La Surname Compound</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Santo Tomas', 'Garcia', 'Reyes', 'Orthopedic Surgery', 'Asian Hospital and Medical Center', 'Muntinlupa City', 'Metro Manila', '09175554433', 'santo.reyes@asianhospital.com')">Santo / Sto. Prefix Shift</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Jose Protacio', 'Mercado', 'Rizal', 'Ophthalmology', 'Cardinal Santos Medical Center', 'San Juan City', 'Metro Manila', '09193332211', 'j.rizal@cardinalsantos.ph')">Middle Name Shift Test</button>
-            <button class="btn btn-secondary" style="font-size:0.78rem; justify-content:flex-start; padding:0.5rem 0.75rem;" onclick="loadErpPreset('Andres', 'Castro', 'Bonifacio', 'Pediatric Surgery', 'Capitol Medical Center', 'Quezon City', 'Metro Manila', '09229998877', 'andres.bonifacio@capitolmed.ph')">🔴 Low Match (New Doctor Profile Test)</button>
-          </div>
         </div>
       </div>
     </section>
@@ -531,6 +517,22 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="modal-cancel-btn">Close</button>
         <button class="btn btn-primary" onclick="submitMedRepEntry()">Proceed & Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTOR PROFILE DETAILS MODAL (View All Merged Data) -->
+  <div class="modal-backdrop" id="doctor-profile-modal-backdrop">
+    <div class="modal-card" style="max-width:750px;">
+      <div class="modal-header">
+        <h3 id="doctor-profile-modal-title">👤 Master Doctor Profile & Merged Data</h3>
+        <button class="btn btn-secondary" onclick="closeDoctorProfileModal()" style="padding:0.2rem 0.5rem; border:none; background:transparent; font-size:1.1rem;">✕</button>
+      </div>
+      <div class="modal-body" id="doctor-profile-modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDoctorProfileModal()">Close Profile Window</button>
       </div>
     </div>
   </div>
